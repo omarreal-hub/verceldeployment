@@ -16,6 +16,9 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+// Standard Profile ID from n8n logic
+const PROFILE_ID = "21ff2317-55ae-8094-82ca-f82390f77977";
+
 export async function OPTIONS() {
     return new Response(null, { headers: corsHeaders });
 }
@@ -25,60 +28,91 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { prompt, modelId, primaryModelId, fallbackModelId } = RequestSchema.parse(body);
 
-        const plan = await generatePlanWithAI(prompt, modelId, primaryModelId, fallbackModelId);
+        const projectPlans = await generatePlanWithAI(prompt, modelId, primaryModelId, fallbackModelId);
 
+        const summary = {
+            projects_created: 0,
+            tasks_created: 0,
+            notes_created: 0
+        };
+
+        // Fetch Zones for relation mapping
         const zonesResponse = await notion.databases.query({ database_id: DATABASE_IDS.ZONES });
-        let matchedZoneId = null;
+        const zones = zonesResponse.results.map((p: any) => ({
+            id: p.id,
+            name: p.properties['Name']?.title?.[0]?.plain_text?.toLowerCase()
+        }));
 
-        for (const page of zonesResponse.results) {
-            // @ts-ignore
-            const titleProp = page.properties['Name']?.title?.[0]?.plain_text;
-            if (titleProp && titleProp.toLowerCase().includes(plan.project.zone_name.toLowerCase())) {
-                matchedZoneId = page.id;
-                break;
-            }
-        }
+        for (const plan of projectPlans) {
+            // 1. Find Matched Zone
+            const matchedZone = zones.find(z => z.name && z.name.includes(plan.project.zone_id.toLowerCase()));
 
-        const projectResponse = await notion.pages.create({
-            parent: { database_id: DATABASE_IDS.PROJECTS },
-            properties: {
-                'Name': { title: [{ text: { content: plan.project.name } }] },
-                'Importance': { select: { name: normalizeImportance(plan.project.importance) } },
-                'Urgency': { select: { name: normalizeUrgency(plan.project.urgency) } },
-                'Type': { select: { name: plan.project.type } },
-                'Aura Value': { number: plan.project.aura_value },
-                'start date': { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } },
-                'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
-                ...(matchedZoneId ? { 'Zones': { relation: [{ id: matchedZoneId }] } } : {})
-            }
-        });
-
-        const projectId = projectResponse.id;
-
-        const taskResults = [];
-        for (const task of plan.tasks) {
-            const taskRes = await notion.pages.create({
-                parent: { database_id: DATABASE_IDS.TASKS },
+            // 2. Create Project
+            const projectResponse = await notion.pages.create({
+                parent: { database_id: DATABASE_IDS.PROJECTS },
                 properties: {
-                    'Task Name': { title: [{ text: { content: task.name } }] },
-                    'Importance': { select: { name: normalizeImportance(task.importance) } },
-                    'Urgency': { select: { name: normalizeUrgency(task.urgency) } },
-                    'Status': { status: { name: task.status } },
-                    'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
-                    'Project': { relation: [{ id: projectId }] }
+                    'Name': { title: [{ text: { content: plan.project.name } }] },
+                    'Importance': { select: { name: normalizeImportance(plan.project.importance) } },
+                    'Urgency': { select: { name: normalizeUrgency(plan.project.urgency) } },
+                    'Type': { select: { name: plan.project.type } },
+                    'Aura Value': { number: plan.project.aura_value },
+                    'start date': { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } },
+                    'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
+                    'Profile': { relation: [{ id: PROFILE_ID }] },
+                    ...(matchedZone ? { 'Zones': { relation: [{ id: matchedZone.id }] } } : {})
                 }
             });
-            taskResults.push(taskRes.id);
+
+            const projectId = projectResponse.id;
+            summary.projects_created++;
+
+            // 3. Create Tasks
+            for (const task of plan.tasks) {
+                await notion.pages.create({
+                    parent: { database_id: DATABASE_IDS.TASKS },
+                    properties: {
+                        'Task Name': { title: [{ text: { content: task.name } }] },
+                        'Status': { status: { name: task.status } },
+                        'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
+                        'Project': { relation: [{ id: projectId }] },
+                        'Profile': { relation: [{ id: PROFILE_ID }] }
+                    }
+                });
+                summary.tasks_created++;
+            }
+
+            // 4. Create Smart Note if exists
+            if (plan.project.smart_note) {
+                await notion.pages.create({
+                    parent: { database_id: '207f2317-55ae-8169-b1ba-fbdce796789a' },
+                    properties: {
+                        'Name': { title: [{ text: { content: plan.project.smart_note.title } }] },
+                        'Status': { status: { name: 'Inbox' } },
+                        'Profile': { relation: [{ id: PROFILE_ID }] },
+                        ...(matchedZone ? { 'Zones': { relation: [{ id: matchedZone.id }] } } : {})
+                    },
+                    children: [
+                        {
+                            object: 'block',
+                            type: 'paragraph',
+                            paragraph: {
+                                rich_text: [{ text: { content: plan.project.smart_note.content } }]
+                            }
+                        }
+                    ]
+                });
+                summary.notes_created++;
+            }
         }
 
         return Response.json({
             success: true,
-            project_id: projectId,
-            tasks_created: taskResults.length,
-            ai_plan: plan
+            summary,
+            ai_plan: projectPlans
         }, { headers: corsHeaders });
 
     } catch (error: any) {
+        console.error('[Generate Tasks Error]', error);
         if (error instanceof z.ZodError) {
             return Response.json({ success: false, error: 'Invalid Payload', details: error.issues }, {
                 status: 400,

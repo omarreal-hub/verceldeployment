@@ -16,9 +16,9 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Standard IDs from n8n logic
-const PROFILE_ID = "207f2317-55ae-8153-9da3-ce5cfe4dd0c8";
-const PROJECT_NOTES_DB_ID = "207f2317-55ae-81ef-8b75-ebbc49298cee";
+// Standard IDs derived from notion lib
+const PROFILE_ID = DATABASE_IDS.PROFILE;
+const PROJECT_NOTES_DB_ID = DATABASE_IDS.PROJECT_NOTES;
 
 const ZONE_MAP: Record<string, string> = {
     "Health": "207f231755ae81c7a048e73601f43cfc",

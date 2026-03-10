@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion.js';
+import { notion, DATABASE_IDS } from './_lib/notion.js';
 import { z } from 'zod';
 
 const corsHeaders = {
@@ -24,11 +24,11 @@ export async function POST(req: Request) {
             notesRes
         ] = await Promise.allSettled([
             // 1. Profile Data
-            notion.pages.retrieve({ page_id: '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }),
+            notion.pages.retrieve({ page_id: DATABASE_IDS.PROFILE }),
 
             // 2. Habits (Today's habits)
             notion.databases.query({
-                database_id: '207f2317-55ae-8147-8067-ecc96da80dbe',
+                database_id: DATABASE_IDS.HABITS,
                 filter: {
                     property: 'Date', date: { equals: todayStr }
                 }
@@ -36,13 +36,13 @@ export async function POST(req: Request) {
 
             // 3. Projects (Active)
             notion.databases.query({
-                database_id: '207f2317-55ae-8135-abf8-ea6150021c30',
+                database_id: DATABASE_IDS.PROJECTS,
                 filter: { property: 'Status', status: { equals: 'In progress' } }
             }),
 
             // 4. Tasks (All except completed from past days)
             notion.databases.query({
-                database_id: '207f2317-55ae-8141-9dba-c847715bc9e1',
+                database_id: DATABASE_IDS.TASKS,
                 filter: {
                     and: [
                         { property: 'Due Date', date: { on_or_before: todayStr } },
@@ -58,12 +58,12 @@ export async function POST(req: Request) {
 
             // 5. Shop Items
             notion.databases.query({
-                database_id: '207f2317-55ae-815d-87ac-cd9367487ec1'
+                database_id: DATABASE_IDS.SHOP
             }),
 
             // 6. Notes (Inbox)
             notion.databases.query({
-                database_id: '207f2317-55ae-8169-b1ba-fbdce796789a',
+                database_id: DATABASE_IDS.NOTES,
                 filter: {
                     and: [
                         { property: 'Status', status: { equals: 'Inbox' } },

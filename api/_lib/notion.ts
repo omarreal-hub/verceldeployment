@@ -12,8 +12,11 @@ export const DATABASE_IDS = {
   ZONES: '207f2317-55ae-8137-a815-d5e30b51abf8',
   PROJECTS: '207f2317-55ae-8135-abf8-ea6150021c30',
   TASKS: '207f2317-55ae-8141-9dba-c847715bc9e1',
-  TEMPLATE: '207f2317-55ae-8003-87a1-f1dc5fb32991', // Solo levelling your life
-  LEVELING_SYSTEM: '207f2317-55ae-8143-8672-ddbd333aa0c0'
+  HABITS: '207f2317-55ae-8147-8067-ecc96da80dbe',
+  SHOP: '207f2317-55ae-815d-87ac-cd9367487ec1',
+  NOTES: '207f2317-55ae-8169-b1ba-fbdce796789a',
+  PROJECT_NOTES: '207f2317-55ae-81ef-8b75-ebbc49298cee',
+  PROFILE: '207f2317-55ae-8153-9da3-ce5cfe4dd0c8'
 };
 
 /**

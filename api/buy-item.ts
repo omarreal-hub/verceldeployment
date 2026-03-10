@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion.js';
+import { notion, DATABASE_IDS } from './_lib/notion.js';
 import { z } from 'zod';
 
 const BuySchema = z.object({
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
             return Response.json({ error: 'Item already claimed' }, { status: 400, headers: corsHeaders });
         }
 
-        const profile = await notion.pages.retrieve({ page_id: '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }) as any;
+        const profile = await notion.pages.retrieve({ page_id: DATABASE_IDS.PROFILE }) as any;
         const auraText = profile.properties['Aura']?.formula?.string || '';
         const totalMatch = auraText.match(/TOTAL\s*:\s*(\d+)/i);
         const userAura = totalMatch ? parseInt(totalMatch[1], 10) : 0;

@@ -16,8 +16,18 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Standard Profile ID from n8n logic
-const PROFILE_ID = "21ff2317-55ae-8094-82ca-f82390f77977";
+// Standard IDs from n8n logic
+const PROFILE_ID = "207f2317-55ae-8153-9da3-ce5cfe4dd0c8";
+const PROJECT_NOTES_DB_ID = "207f2317-55ae-81ef-8b75-ebbc49298cee";
+
+const ZONE_MAP: Record<string, string> = {
+    "Health": "207f231755ae81c7a048e73601f43cfc",
+    "Education": "207f231755ae81c5a484c15581617ba1",
+    "Finances": "207f231755ae818e9e4eca4eb85f9607",
+    "Business": "207f231755ae81a5ae25f16db12897dc",
+    "Personal": "207f231755ae8151bec9f62c26516e41",
+    "Other": "207f231755ae81d5b00ce7acd2671833"
+};
 
 export async function OPTIONS() {
     return new Response(null, { headers: corsHeaders });
@@ -36,16 +46,9 @@ export async function POST(req: Request) {
             notes_created: 0
         };
 
-        // Fetch Zones for relation mapping
-        const zonesResponse = await notion.databases.query({ database_id: DATABASE_IDS.ZONES });
-        const zones = zonesResponse.results.map((p: any) => ({
-            id: p.id,
-            name: p.properties['Name']?.title?.[0]?.plain_text?.toLowerCase()
-        }));
-
         for (const plan of projectPlans) {
-            // 1. Find Matched Zone
-            const matchedZone = zones.find(z => z.name && z.name.includes(plan.project.zone_id.toLowerCase()));
+            // 1. Get correct Zone Page ID
+            const zonePageId = ZONE_MAP[plan.project.zone_id] || ZONE_MAP["Other"];
 
             // 2. Create Project
             const projectResponse = await notion.pages.create({
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
                     'start date': { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } },
                     'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
                     'Profile': { relation: [{ id: PROFILE_ID }] },
-                    ...(matchedZone ? { 'Zones': { relation: [{ id: matchedZone.id }] } } : {})
+                    'Zones': { relation: [{ id: zonePageId }] }
                 }
             });
 
@@ -75,7 +78,8 @@ export async function POST(req: Request) {
                         'Status': { status: { name: task.status } },
                         'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
                         'Project': { relation: [{ id: projectId }] },
-                        'Profile': { relation: [{ id: PROFILE_ID }] }
+                        'Profile': { relation: [{ id: PROFILE_ID }] },
+                        'Zone': { relation: [{ id: zonePageId }] }
                     }
                 });
                 summary.tasks_created++;
@@ -84,12 +88,11 @@ export async function POST(req: Request) {
             // 4. Create Smart Note if exists
             if (plan.project.smart_note) {
                 await notion.pages.create({
-                    parent: { database_id: '207f2317-55ae-8169-b1ba-fbdce796789a' },
+                    parent: { database_id: PROJECT_NOTES_DB_ID },
                     properties: {
                         'Name': { title: [{ text: { content: plan.project.smart_note.title } }] },
-                        'Status': { status: { name: 'Inbox' } },
-                        'Profile': { relation: [{ id: PROFILE_ID }] },
-                        ...(matchedZone ? { 'Zones': { relation: [{ id: matchedZone.id }] } } : {})
+                        'Date': { date: { start: validateOrProvideDefaultDate(plan.project.smart_note.created_at) } },
+                        'Projects': { relation: [{ id: projectId }] }
                     },
                     children: [
                         {
@@ -99,7 +102,8 @@ export async function POST(req: Request) {
                                 rich_text: [{ text: { content: plan.project.smart_note.content } }]
                             }
                         }
-                    ]
+                    ],
+                    icon: { type: 'emoji', emoji: '📝' }
                 });
                 summary.notes_created++;
             }

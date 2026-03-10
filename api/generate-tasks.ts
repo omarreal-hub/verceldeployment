@@ -1,5 +1,5 @@
-import { generatePlanWithAI } from './_lib/ai';
-import { notion, DATABASE_IDS } from './_lib/notion';
+import { generatePlanWithAI } from './_lib/ai.js';
+import { notion, DATABASE_IDS } from './_lib/notion.js';
 import { normalizeImportance, normalizeUrgency, validateOrProvideDefaultDate } from './_lib/utils';
 import { z } from 'zod';
 
@@ -79,3 +79,4 @@ export async function POST(req: Request) {
         }, { status: 500 });
     }
 }
+

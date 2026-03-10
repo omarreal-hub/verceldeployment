@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion';
+import { notion } from './_lib/notion.js';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -80,3 +80,4 @@ export async function POST(req: Request) {
         return Response.json({ success: false, error: String(error) }, { status: 500 });
     }
 }
+

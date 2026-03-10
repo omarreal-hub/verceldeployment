@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion';
+import { notion } from './_lib/notion.js';
 import { z } from 'zod';
 
 const BuySchema = z.object({
@@ -41,3 +41,4 @@ export async function POST(req: Request) {
         return Response.json({ error: String(err) }, { status: 500 });
     }
 }
+

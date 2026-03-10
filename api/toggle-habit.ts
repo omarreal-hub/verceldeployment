@@ -6,6 +6,16 @@ const ToggleSchema = z.object({
     action: z.literal('toggle')
 });
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -23,9 +33,11 @@ export async function POST(req: Request) {
             }
         });
 
-        return Response.json({ success: true, newStatus: !currentValue });
-    } catch (err) {
-        return Response.json({ error: String(err) }, { status: 500 });
+        return Response.json({ success: true, newStatus: !currentValue }, { headers: corsHeaders });
+    } catch (err: any) {
+        return Response.json({ error: err.message || String(err) }, {
+            status: 500,
+            headers: corsHeaders
+        });
     }
 }
-

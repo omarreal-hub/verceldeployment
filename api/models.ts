@@ -1,3 +1,13 @@
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
+
 export async function GET() {
     try {
         const groqRes = await fetch('https://api.groq.com/openai/v1/models', {
@@ -44,13 +54,13 @@ export async function GET() {
             );
         }
 
-        return Response.json({ models });
-    } catch (error) {
+        return Response.json({ models }, { headers: corsHeaders });
+    } catch (error: any) {
         return Response.json({
-            error: 'Failed to fetch models', models: [
+            error: error.message || 'Failed to fetch models', models: [
                 { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'Google' },
                 { id: 'groq:llama3-8b-8192', name: 'LLaMA3 8B', provider: 'Groq' }
             ]
-        });
+        }, { status: 500, headers: corsHeaders });
     }
 }

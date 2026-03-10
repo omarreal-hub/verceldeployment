@@ -5,6 +5,16 @@ const RequestSchema = z.object({
     page_id: z.string().min(5),
 });
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -73,11 +83,13 @@ export async function POST(req: Request) {
                 zones
             },
             blocks: parsedBlocks
-        });
+        }, { headers: corsHeaders });
 
     } catch (error: any) {
         console.error('Get Note Error:', error);
-        return Response.json({ success: false, error: String(error) }, { status: 500 });
+        return Response.json({ success: false, error: error.message || String(error) }, {
+            status: 500,
+            headers: corsHeaders
+        });
     }
 }
-

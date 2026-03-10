@@ -10,6 +10,16 @@ const RequestSchema = z.object({
     fallbackModelId: z.string().optional()
 });
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -66,18 +76,19 @@ export async function POST(req: Request) {
             project_id: projectId,
             tasks_created: taskResults.length,
             ai_plan: plan
-        });
+        }, { headers: corsHeaders });
 
     } catch (error: any) {
         if (error instanceof z.ZodError) {
-            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, { status: 400 });
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, {
+                status: 400,
+                headers: corsHeaders
+            });
         }
 
         return Response.json({
             success: false,
             error: error.message || 'Internal Server Error'
-        }, { status: 500 });
+        }, { status: 500, headers: corsHeaders });
     }
 }
-
-

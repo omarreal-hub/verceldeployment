@@ -1,6 +1,16 @@
 import { notion } from './_lib/notion.js';
 import { z } from 'zod';
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
+
 export async function POST(req: Request) {
     try {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -219,11 +229,13 @@ export async function POST(req: Request) {
             projects,
             tasks,
             shop
-        });
+        }, { headers: corsHeaders });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('Dashboard Error:', error);
-        return Response.json({ error: 'Failed to fetch dashboard' }, { status: 500 });
+        return Response.json({ error: 'Failed to fetch dashboard', details: error.message || String(error) }, {
+            status: 500,
+            headers: corsHeaders
+        });
     }
 }
-

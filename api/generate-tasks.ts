@@ -80,7 +80,7 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         if (error instanceof z.ZodError) {
-            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, {
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.issues }, {
                 status: 400,
                 headers: corsHeaders
             });

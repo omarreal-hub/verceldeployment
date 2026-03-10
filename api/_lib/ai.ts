@@ -1,4 +1,4 @@
-import { generateObject, type LanguageModelV1 } from 'ai';
+import { generateObject, type LanguageModel } from 'ai';
 import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
 import { z } from 'zod';
@@ -50,14 +50,14 @@ export async function generatePlanWithAI(
     return await _generate(model, systemMessage, prompt, `Explicit (${modelId})`);
 }
 
-function getModelById(id: string): LanguageModelV1 {
+function getModelById(id: string): LanguageModel {
     if (id.startsWith('groq:')) return groq(id.replace('groq:', ''));
     if (id.startsWith('google:')) return google(id.replace('google:', ''));
-    return google('gemini-2.5-flash');
+    return google('gemini-2.0-flash');
 }
 
-async function _generate(model: LanguageModelV1, system: string, prompt: string, modelNameLog: string) {
+async function _generate(model: LanguageModel, system: string, prompt: string, modelNameLog: string) {
     console.log(`[AI Triggering] Using ${modelNameLog}...`);
-    const { object } = await generateObject({ model, schema: TaskGenerationSchema, system, prompt, mode: 'json' });
+    const { object } = await generateObject({ model, schema: TaskGenerationSchema, system, prompt });
     return object;
 }

@@ -55,25 +55,40 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
     const executionFn = async () => {
       setSubmitted('loading');
-      const payload = type === 'project'
-        ? {
-          prompt: text,
-          modelId: selectedModel,
-          primaryModelId: primaryModel,
-          fallbackModelId: fallbackModel
+      try {
+        const payload = type === 'project'
+          ? {
+            prompt: text,
+            modelId: selectedModel,
+            primaryModelId: primaryModel,
+            fallbackModelId: fallbackModel
+          }
+          : { text }; // Corrected from message: { text } to match updated api/add-note.ts
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Failed to create via API');
+
+        const data = await res.json();
+        if (type === 'project' && onProjectGenerated && data.ai_plan) {
+          onProjectGenerated(data.ai_plan);
         }
-        : { message: { text } };
-
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) throw new Error('Failed to create via API');
-
-      const data = await res.json();
-      if (type === 'project' && onProjectGenerated && data.ai_plan) {
-        onProjectGenerated(data.ai_plan);
+        setSubmitted('success');
+      } catch (err) {
+        console.error("Execution failed:", err);
+        setSubmitted(false);
+      } finally {
+        // Delay resetting the UI to allow "success" state to be seen
+        setTimeout(() => {
+          if (open) {
+            setOpen(false);
+            setText('');
+            setSubmitted(false);
+          }
+        }, 1500);
       }
     };
 
@@ -81,15 +96,13 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
     if (showSnackbar) {
       showSnackbar(`Added ${type === 'note' ? 'Note' : 'Project'}`, executionFn, rollbackFn);
+      // Immediately close and clear text to avoid stay-open feeling
+      setOpen(false);
+      setText('');
+      setSubmitted(false);
     } else {
       executionFn();
     }
-
-    setTimeout(() => {
-      setText('');
-      setOpen(false);
-      setSubmitted(false);
-    }, 300);
   };
 
   const currentModelData = models.find(m => m.id === selectedModel);

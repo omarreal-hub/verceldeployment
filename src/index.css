@@ -9,13 +9,27 @@
 }
 
 :root {
-  /* Telegram Native Theme Mapping with High-End Fallbacks */
-  --tg-bg: var(--tg-theme-bg-color, #09090b);
-  --tg-secondary-bg: var(--tg-theme-secondary-bg-color, #18181b);
-  --tg-text: var(--tg-theme-text-color, #fafafa);
-  --tg-hint: var(--tg-theme-hint-color, #71717a);
-  --tg-link: var(--tg-theme-link-color, #a78bfa);
-  --tg-accent: var(--tg-theme-button-color, #7c3aed);
+  /* Locked Premium Dark Theme (Overrides Telegram Theme) */
+  --tg-bg: #09090b;
+  --tg-secondary-bg: #18181b;
+  --tg-text: #fafafa;
+  --tg-hint: #71717a;
+  --tg-link: #a78bfa;
+  --tg-accent: #7c3aed;
+
+  /* Explicit Telegram Theme Variable Overrides */
+  --tg-theme-bg-color: #09090b !important;
+  --tg-theme-secondary-bg-color: #18181b !important;
+  --tg-theme-text-color: #fafafa !important;
+  --tg-theme-hint-color: #71717a !important;
+  --tg-theme-link-color: #a78bfa !important;
+  --tg-theme-button-color: #7c3aed !important;
+  --tg-theme-button-text-color: #ffffff !important;
+  --tg-theme-accent-text-color: #7c3aed !important;
+  --tg-theme-section-bg-color: #18181b !important;
+  --tg-theme-section-header-text-color: #7c3aed !important;
+  --tg-theme-subtitle-text-color: #71717a !important;
+  --tg-theme-destructive-text-color: #fb7185 !important;
 
   /* Core Design Tokens */
   --bg-primary: var(--tg-bg);

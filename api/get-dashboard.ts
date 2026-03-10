@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion';
+import { notion } from './_lib/notion.js';
 import { z } from 'zod';
 
 export async function POST(req: Request) {
@@ -226,3 +226,4 @@ export async function POST(req: Request) {
         return Response.json({ error: 'Failed to fetch dashboard' }, { status: 500 });
     }
 }
+

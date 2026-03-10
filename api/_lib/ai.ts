@@ -13,11 +13,11 @@ export const SmartNoteSchema = z.object({
 
 export const ProjectSchema = z.object({
     name: z.string(),
-    importance: z.enum(['important', 'not important']),
-    urgency: z.enum(['urgent', 'not urgent']),
+    importance: z.enum(['Important', 'Not Important']).describe("Strictly 'Important' or 'Not Important'"),
+    urgency: z.enum(['Urgent', 'Not Urgent']).describe("Strictly 'Urgent' or 'Not Urgent'"),
     type: z.enum(['QUEST', 'Special Missions']),
     aura_value: z.number().min(1).max(100),
-    zone_id: z.enum(['Health', 'Education', 'Finances', 'Business', 'Personal', 'Other']),
+    zone_name: z.string().describe("The life zone name (e.g. 'Business', 'Health', 'Education', 'Personal')"),
     start_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
     final_due_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
     smart_note: SmartNoteSchema
@@ -27,8 +27,8 @@ export const TaskSchema = z.object({
     name: z.string(),
     do_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
     status: z.enum(['Not started', 'In progress', 'Completed']).default('Not started'),
-    importance: z.enum(['important', 'not important']).optional(),
-    urgency: z.enum(['urgent', 'not urgent']).optional()
+    importance: z.enum(['Important', 'Not Important']).optional(),
+    urgency: z.enum(['Urgent', 'Not Urgent']).optional()
 });
 
 export const TaskGenerationSchema = z.array(z.object({
@@ -38,8 +38,8 @@ export const TaskGenerationSchema = z.array(z.object({
 
 export const NoteExtractionSchema = z.object({
     title: z.string().describe("A short, descriptive title for the note."),
-    type: z.enum(["capture", "resource"]).describe("Set to 'resource' if the text contains a URL, otherwise 'capture'."),
-    zone: z.enum(["Health", "Education", "Finances", "Business", "Personal", "Other"]).describe("The category or life area based on the content context."),
+    type: z.enum(["Capture", "Resource"]).describe("Set to 'Resource' if text contains a URL, otherwise 'Capture'."),
+    zone_name: z.string().describe("The life zone name (e.g. 'Business', 'Education', 'Health')."),
     url: z.string().nullable().describe("Extract the URL if present, otherwise return null."),
     summary: z.string().describe("A concise summary of the content or the cleaned text itself.")
 });

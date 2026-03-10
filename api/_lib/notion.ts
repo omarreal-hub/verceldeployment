@@ -20,14 +20,19 @@ export const DATABASE_IDS = {
 };
 
 /**
- * Validates connectivity and retrieves database properties
+ * Retrieves all zones from the ZONES database for dynamic replacement
  */
-export async function getDatabaseSchema(databaseId: string) {
+export async function getZones() {
   try {
-    const response = await notion.databases.retrieve({ database_id: databaseId });
-    return response;
+    const response = await notion.databases.query({
+      database_id: DATABASE_IDS.ZONES,
+    });
+    return response.results.map((page: any) => ({
+      id: page.id,
+      name: page.properties['Name']?.title?.[0]?.plain_text || 'Unknown'
+    }));
   } catch (error) {
-    console.error(`Notion API Error retrieving database ${databaseId}:`, error);
-    throw new Error(`Failed to map database schema. Please check your Notion integration and share database with it.`);
+    console.error('Error fetching zones:', error);
+    return [];
   }
 }

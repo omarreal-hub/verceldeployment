@@ -1,6 +1,6 @@
 import { generatePlanWithAI } from './_lib/ai.js';
 import { notion, DATABASE_IDS } from './_lib/notion.js';
-import { normalizeImportance, normalizeUrgency, validateOrProvideDefaultDate } from './_lib/utils';
+import { normalizeImportance, normalizeUrgency, validateOrProvideDefaultDate } from './_lib/utils.js';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -79,4 +79,5 @@ export async function POST(req: Request) {
         }, { status: 500 });
     }
 }
+
 

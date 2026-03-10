@@ -70,7 +70,11 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('Failed to create via API');
+        
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || errorData.details || 'Failed to create via API');
+        }
 
         const data = await res.json();
         if (type === 'project' && onProjectGenerated && data.ai_plan) {

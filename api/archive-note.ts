@@ -1,4 +1,4 @@
-import { notion } from './_lib/notion';
+import { notion } from './_lib/notion.js';
 import { z } from 'zod';
 
 const BodySchema = z.object({
@@ -26,3 +26,4 @@ export async function POST(req: Request) {
         );
     }
 }
+

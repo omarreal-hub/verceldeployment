@@ -16,7 +16,6 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-// Standard IDs derived from notion lib
 const PROFILE_ID = DATABASE_IDS.PROFILE;
 const PROJECT_NOTES_DB_ID = DATABASE_IDS.PROJECT_NOTES;
 
@@ -31,13 +30,13 @@ export async function POST(req: Request) {
 
         // 1. Fetch dynamic zones
         const zones = await getZones();
+        const defaultZoneId = zones.length > 0 ? zones[0].id : null;
 
         // 2. AI Analysis
         console.log('[Generate Tasks] Starting AI analysis...');
         let aiResult = await generatePlanWithAI(prompt, modelId, primaryModelId, fallbackModelId);
         
-        // Handle both Array and Object results for maximum robustness
-        const projectPlans = Array.isArray(aiResult) ? aiResult : [aiResult];
+        const projectPlans = Array.isArray(aiResult) ? aiResult : (aiResult ? [aiResult] : []);
         console.log('[Generate Tasks] AI Plan generated with', projectPlans.length, 'projects.');
 
         const summary = {
@@ -47,27 +46,35 @@ export async function POST(req: Request) {
         };
 
         for (const plan of projectPlans) {
+            if (!plan || !plan.project) continue;
+
             console.log('[Generate Tasks] Processing project:', plan.project.name);
             
             // Dynamic Zone matching
             const matchedZone = zones.find(z => 
                 z.name.toLowerCase().includes(plan.project.zone_name.toLowerCase())
-            ) || zones[0]; // Fallback to first zone or 'Other' logic
+            );
+            const zoneId = matchedZone?.id || defaultZoneId;
 
             // 2. Create Project
+            const projectProps: any = {
+                'Name': { title: [{ text: { content: plan.project.name } }] },
+                'Importance': { select: { name: normalizeImportance(plan.project.importance) } },
+                'Urgency': { select: { name: normalizeUrgency(plan.project.urgency) } }
+            };
+
+            if (plan.project.type) projectProps['Type'] = { select: { name: plan.project.type } };
+            if (plan.project.aura_value) projectProps['Aura Value'] = { number: plan.project.aura_value };
+            if (plan.project.start_date) projectProps['start date'] = { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } };
+            if (plan.project.final_due_date) projectProps['Due Date'] = { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } };
+            
+            // Relations
+            if (PROFILE_ID) projectProps['Profile'] = { relation: [{ id: PROFILE_ID }] };
+            if (zoneId) projectProps['Zones'] = { relation: [{ id: zoneId }] };
+
             const projectResponse = await notion.pages.create({
                 parent: { database_id: DATABASE_IDS.PROJECTS },
-                properties: {
-                    'Name': { title: [{ text: { content: plan.project.name } }] },
-                    'Importance': { select: { name: normalizeImportance(plan.project.importance) } },
-                    'Urgency': { select: { name: normalizeUrgency(plan.project.urgency) } },
-                    'Type': { select: { name: plan.project.type } },
-                    'Aura Value': { number: plan.project.aura_value },
-                    'start date': { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } },
-                    'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
-                    'Profile': { relation: [{ id: PROFILE_ID }] },
-                    'Zones': { relation: [{ id: matchedZone.id }] }
-                },
+                properties: projectProps,
                 icon: { type: 'emoji', emoji: '📂' }
             });
 
@@ -76,33 +83,34 @@ export async function POST(req: Request) {
 
             // 3. Create Tasks
             for (const task of plan.tasks) {
-                // Cascading logic
                 const importance = task.importance || plan.project.importance;
                 const urgency = task.urgency || plan.project.urgency;
 
+                const taskProps: any = {
+                    'Task Name': { title: [{ text: { content: task.name } }] },
+                    'Status': { status: { name: task.status || 'Not started' } },
+                    'Importance': { select: { name: normalizeImportance(importance) } },
+                    'Urgency': { select: { name: normalizeUrgency(urgency) } }
+                };
+
+                if (task.do_date) taskProps['Due Date'] = { date: { start: validateOrProvideDefaultDate(task.do_date) } };
+                if (projectId) taskProps['Project'] = { relation: [{ id: projectId }] };
+                if (PROFILE_ID) taskProps['Profile'] = { relation: [{ id: PROFILE_ID }] };
+                if (zoneId) taskProps['Zone'] = { relation: [{ id: zoneId }] };
+
                 await notion.pages.create({
                     parent: { database_id: DATABASE_IDS.TASKS },
-                    properties: {
-                        'Task Name': { title: [{ text: { content: task.name } }] },
-                        'Status': { status: { name: task.status } },
-                        'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
-                        'Project': { relation: [{ id: projectId }] },
-                        'Profile': { relation: [{ id: PROFILE_ID }] },
-                        'Zone': { relation: [{ id: matchedZone.id }] },
-                        'Importance': { select: { name: normalizeImportance(importance) } },
-                        'Urgency': { select: { name: normalizeUrgency(urgency) } }
-                    },
+                    properties: taskProps,
                     icon: { type: 'emoji', emoji: '☑' }
                 });
                 summary.tasks_created++;
             }
 
-            // 4. Create Smart Note if exists
             if (plan.project.smart_note) {
                 await notion.pages.create({
                     parent: { database_id: PROJECT_NOTES_DB_ID },
                     properties: {
-                        'Name': { title: [{ text: { content: plan.project.smart_note.title } }] },
+                        'Note': { title: [{ text: { content: plan.project.smart_note.title } }] },
                         'Date': { date: { start: validateOrProvideDefaultDate(plan.project.smart_note.created_at) } },
                         'Projects': { relation: [{ id: projectId }] }
                     },

@@ -13,22 +13,22 @@ export const SmartNoteSchema = z.object({
 
 export const ProjectSchema = z.object({
     name: z.string(),
-    importance: z.enum(['Important', 'Not Important']).describe("Strictly 'Important' or 'Not Important'"),
-    urgency: z.enum(['Urgent', 'Not Urgent']).describe("Strictly 'Urgent' or 'Not Urgent'"),
-    type: z.enum(['QUEST', 'Special Missions']),
-    aura_value: z.number().min(1).max(100),
-    zone_name: z.string().describe("The life zone name (e.g. 'Business', 'Health', 'Education', 'Personal')"),
-    start_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
-    final_due_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
+    importance: z.enum(['Important', 'Not Important']),
+    urgency: z.enum(['Urgent', 'Not Urgent']),
+    type: z.string().optional(),
+    aura_value: z.number().optional(),
+    start_date: z.string().optional(),
+    final_due_date: z.string().optional(),
+    zone_name: z.string(),
     smart_note: SmartNoteSchema
 });
 
 export const TaskSchema = z.object({
     name: z.string(),
-    do_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
-    status: z.enum(['Not started', 'In progress', 'Completed']).default('Not started'),
     importance: z.enum(['Important', 'Not Important']).optional(),
-    urgency: z.enum(['Urgent', 'Not Urgent']).optional()
+    urgency: z.enum(['Urgent', 'Not Urgent']).optional(),
+    do_date: z.string().optional(),
+    status: z.string().optional()
 });
 
 export const TaskGenerationSchema = z.array(z.object({
@@ -37,11 +37,10 @@ export const TaskGenerationSchema = z.array(z.object({
 }));
 
 export const NoteExtractionSchema = z.object({
-    title: z.string().describe("A short, descriptive title for the note."),
-    type: z.enum(["Capture", "Resource"]).describe("Set to 'Resource' if text contains a URL, otherwise 'Capture'."),
-    zone_name: z.string().describe("The life zone name (e.g. 'Business', 'Education', 'Health')."),
-    url: z.string().nullable().describe("Extract the URL if present, otherwise return null."),
-    summary: z.string().describe("A concise summary of the content or the cleaned text itself.")
+    title: z.string(),
+    type: z.enum(['Capture', 'Resource']),
+    zone_name: z.string(),
+    url: z.string().optional()
 });
 
 export type GeneratedTaskPlan = z.infer<typeof TaskGenerationSchema>;
@@ -58,38 +57,31 @@ Your goal is to parse user input into a STRUCTURED JSON LIST of projects and the
 3. Assign an "Aura Value" (1-100) based on difficulty.
 
 4. **TASK GENERATION LOGIC (DYNAMIC SCALING & OVERRIDE):**
-   - **EXPLICIT OVERRIDE:** If the user explicitly dictates the project structure or the exact number/names of tasks (e.g., "Create 1 project with 2 tasks: A and B"), you MUST follow their instructions BLINDLY. Do not add, remove, or invent tasks.
-   - **Single/Simple Actions:** If the user input is a clear, simple action and provides no specific structure, create EXACTLY ONE task that directly represents this action. Do not overcomplicate.
-   - **Complex Goals:** ONLY if the input is a large goal without user-specified steps, break it down intelligently into actionable sub-tasks (2 to 10 max).
+   - **EXPLICIT OVERRIDE:** If the user explicitly dictates the project structure or the exact number/names of tasks, you MUST follow their instructions BLINDLY.
+   - **Single/Simple Actions:** Create EXACTLY ONE task if the input is simple.
+   - **Complex Goals:** Break down into 2-10 sub-tasks only for large goals.
 
 5. **SMART NOTE EXTRACTION:**
-   - Identify any reference materials, URLs, specific context, or "brain dump" details.
-   - If found, create a smart_note object inside the project.
-   - **Title:** Generate a short, descriptive title for the note.
-   - **Content:** Include the raw text, URL, or mixed content.
+   - Identify context/URLs and create a smart_note object.
    - **Date:** Set created_at to CURRENT DATE.
-   - If NO extra context is found, set smart_note to null.
 
-6. **SCHEDULING LOGIC:**
-   - If the user says "Today", "Now", or "Tonight", you MUST schedule tasks for the CURRENT DATE.
-   - If the user specifies a date, use that date.
-   - ONLY if no date is specified, schedule starting from tomorrow.
-
-### CLASSIFICATION RULES (STRICT):
-1. Project Type MUST be either "QUEST" or "Special Missions".
-2. NEVER use "Task" as a project type.
+6. **CLASSIFICATION & SCHEDULING:**
+   - Importance: ONLY 'Important' or 'Not Important'.
+   - Urgency: ONLY 'Urgent' or 'Not Urgent'.
+   - Project Type: 'QUEST' or 'Special Missions'.
 
 ### CRITICAL OUTPUT RULES:
-1. Output MUST be a raw JSON List [...] in the specified schema.
+1. Output MUST be a raw JSON List [...] of objects.
 2. All dates must follow YYYY-MM-DD format.`;
 
 const NOTE_EXTRACTOR_SYSTEM = `Analyze the following text from the user.
-Extract the information strictly adhering to the format instructions provided:
-- title: A short, descriptive title for the note.
-- type: 'resource' if the text contains a URL, otherwise 'capture'.
-- zone: Health, Education, Finances, Business, Personal, or Other.
-- url: Extract the URL if present, otherwise null.
-- summary: A concise summary of the content or the cleaned text itself.`;
+Extract metadata strictly following these rules:
+- title: Concise and clear.
+- type: 'Capture' or 'Resource' (Resource if it contains a URL).
+- zone: Categorize (Work, Personal, etc.).
+- url: Extract the URL if present.
+
+IMPORTANT: Use ONLY 'Important'/'Not Important' for importance and 'Urgent'/'Not Urgent' for urgency.`;
 
 // --- FUNCTIONS ---
 

@@ -43,12 +43,16 @@ export async function POST(req: Request) {
         }
 
         // 1. AI Extract Details
+        console.log('[Add Note] Extracting details for text:', text.substring(0, 50) + '...');
         const extraction = await extractNoteWithAI(text);
+        console.log('[Add Note] AI Extraction result:', extraction);
 
         // 2. Map Zone to Page ID
         const zonePageId = ZONE_MAP[extraction.zone] || ZONE_MAP["Other"];
+        console.log('[Add Note] Mapped Zone:', extraction.zone, '->', zonePageId);
 
         // 3. Create Note Page
+        console.log('[Add Note] Creating Notion page in DB:', NOTES_DB_ID);
         const response = await notion.pages.create({
             parent: { database_id: NOTES_DB_ID },
             properties: {
@@ -69,8 +73,10 @@ export async function POST(req: Request) {
                     }
                 }
             ],
-            icon: { type: 'emoji', emoji: extraction.type === 'resource' ? '🔗' : '📝' }
+            icon: { type: 'emoji', emoji: '📒' }
         });
+
+        console.log('[Add Note] Success! Page ID:', response.id);
 
         return Response.json({
             success: true,

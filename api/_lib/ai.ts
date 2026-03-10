@@ -26,7 +26,9 @@ export const ProjectSchema = z.object({
 export const TaskSchema = z.object({
     name: z.string(),
     do_date: z.string().describe("ISO 8601 YYYY-MM-DD"),
-    status: z.enum(['Not started', 'In progress', 'Completed']).default('Not started')
+    status: z.enum(['Not started', 'In progress', 'Completed']).default('Not started'),
+    importance: z.enum(['important', 'not important']).optional(),
+    urgency: z.enum(['urgent', 'not urgent']).optional()
 });
 
 export const TaskGenerationSchema = z.array(z.object({

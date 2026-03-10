@@ -37,8 +37,10 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { prompt, modelId, primaryModelId, fallbackModelId } = RequestSchema.parse(body);
-
+        // 1. AI Analysis
+        console.log('[Generate Tasks] Starting AI analysis for prompt:', prompt.substring(0, 50) + '...');
         const projectPlans = await generatePlanWithAI(prompt, modelId, primaryModelId, fallbackModelId);
+        console.log('[Generate Tasks] AI Plan generated with', projectPlans.length, 'projects.');
 
         const summary = {
             projects_created: 0,
@@ -47,10 +49,12 @@ export async function POST(req: Request) {
         };
 
         for (const plan of projectPlans) {
+            console.log('[Generate Tasks] Processing project:', plan.project.name);
             // 1. Get correct Zone Page ID
             const zonePageId = ZONE_MAP[plan.project.zone_id] || ZONE_MAP["Other"];
 
             // 2. Create Project
+            console.log('[Generate Tasks] Creating Project in Notion DB:', DATABASE_IDS.PROJECTS);
             const projectResponse = await notion.pages.create({
                 parent: { database_id: DATABASE_IDS.PROJECTS },
                 properties: {
@@ -63,7 +67,8 @@ export async function POST(req: Request) {
                     'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
                     'Profile': { relation: [{ id: PROFILE_ID }] },
                     'Zones': { relation: [{ id: zonePageId }] }
-                }
+                },
+                icon: { type: 'emoji', emoji: '📂' }
             });
 
             const projectId = projectResponse.id;
@@ -71,6 +76,10 @@ export async function POST(req: Request) {
 
             // 3. Create Tasks
             for (const task of plan.tasks) {
+                // Cascading logic: Use task values if provided by AI, else fall back to project values
+                const importance = task.importance || plan.project.importance;
+                const urgency = task.urgency || plan.project.urgency;
+
                 await notion.pages.create({
                     parent: { database_id: DATABASE_IDS.TASKS },
                     properties: {
@@ -79,8 +88,11 @@ export async function POST(req: Request) {
                         'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
                         'Project': { relation: [{ id: projectId }] },
                         'Profile': { relation: [{ id: PROFILE_ID }] },
-                        'Zone': { relation: [{ id: zonePageId }] }
-                    }
+                        'Zone': { relation: [{ id: zonePageId }] },
+                        'Importance': { select: { name: normalizeImportance(importance) } },
+                        'Urgency': { select: { name: normalizeUrgency(urgency) } }
+                    },
+                    icon: { type: 'emoji', emoji: '☑' }
                 });
                 summary.tasks_created++;
             }

@@ -81,12 +81,12 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
         console.error("Execution failed:", err);
         setSubmitted(false);
       } finally {
-        // Delay resetting the UI to allow "success" state to be seen
+        // Ensure submitted is reset even if we don't close the sheet
         setTimeout(() => {
+          setSubmitted(false);
           if (open) {
             setOpen(false);
             setText('');
-            setSubmitted(false);
           }
         }, 1500);
       }
@@ -110,7 +110,7 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
   return (
     <>
-      <button className="fab" onClick={() => setOpen(true)} aria-label="Smart Capture">
+      <button className="fab" onClick={() => { setOpen(true); setSubmitted(false); }} aria-label="Smart Capture">
         <Sparkles size={22} color="white" />
       </button>
 

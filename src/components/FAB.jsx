@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Sparkles, X, SendHorizonal, Settings2, ChevronDown, Check, Zap } from 'lucide-react';
 
-export default function FAB({ showSnackbar, onProjectGenerated }) {
+export default function FAB({ showSnackbar, showToast, onProjectGenerated }) {
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -11,11 +11,11 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
   // Persisted Settings
   const [selectedModel, setSelectedModel] = useState(() => localStorage.getItem('ai_selected_model') || 'smart');
-  const [primaryModel, setPrimaryModel] = useState(() => localStorage.getItem('ai_primary_model') || 'google:gemini-2.5-flash');
-  const [fallbackModel, setFallbackModel] = useState(() => localStorage.getItem('ai_fallback_model') || 'groq:llama3-8b-8192');
+  const [primaryModel, setPrimaryModel] = useState(() => localStorage.getItem('ai_primary_model') || 'google:gemini-2.0-flash-exp');
+  const [fallbackModel, setFallbackModel] = useState(() => localStorage.getItem('ai_fallback_model') || 'groq:llama-3.3-70b-versatile');
   const [visibleModelIds, setVisibleModelIds] = useState(() => {
     const saved = localStorage.getItem('ai_visible_models');
-    return saved ? JSON.parse(saved) : ['groq:llama3-8b-8192', 'google:gemini-2.5-flash', 'groq:deepseek-r1-distill-llama-70b'];
+    return saved ? JSON.parse(saved) : ['groq:llama-3.3-70b-versatile', 'google:gemini-2.0-flash-exp', 'groq:deepseek-r1-distill-llama-70b'];
   });
 
   const dropdownRef = useRef(null);
@@ -49,68 +49,54 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
   const handleSubmit = async (type) => {
     if (!text.trim()) return;
-    setSubmitted('success');
-
+    
     const url = type === 'note' ? '/api/add-note' : '/api/generate-tasks';
-
-    const executionFn = async () => {
-      setSubmitted('loading');
-      try {
-        const payload = type === 'project'
-          ? {
-            prompt: text,
-            modelId: selectedModel,
-            primaryModelId: primaryModel,
-            fallbackModelId: fallbackModel
-          }
-          : { 
-            text,
-            modelId: selectedModel,
-            primaryModelId: primaryModel,
-            fallbackModelId: fallbackModel
-          };
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error || errorData.details || 'Failed to create via API');
+    const payload = type === 'project'
+      ? {
+          prompt: text,
+          modelId: selectedModel,
+          primaryModelId: primaryModel,
+          fallbackModelId: fallbackModel
         }
+      : { 
+          text,
+          modelId: selectedModel === 'smart' ? primaryModel : selectedModel 
+        };
 
-        const data = await res.json();
-        if (type === 'project' && onProjectGenerated && data.ai_plan) {
-          onProjectGenerated(data.ai_plan);
-        }
-        setSubmitted('success');
-      } catch (err) {
-        console.error("Execution failed:", err);
-        setSubmitted(false);
-      } finally {
-        // Ensure submitted is reset even if we don't close the sheet
-        setTimeout(() => {
-          setSubmitted(false);
-          if (open) {
-            setOpen(false);
-            setText('');
-          }
-        }, 1500);
+    setSubmitted('loading');
+    
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Failed to create via API');
+
+      const data = await res.json();
+      if (type === 'project' && onProjectGenerated && data.ai_plan) {
+        onProjectGenerated(data.ai_plan);
       }
-    };
+      
+      setSubmitted('success');
+      if (showToast) {
+        showToast(type === 'note' ? 'Note saved successfully' : 'Project created successfully', 'success');
+      }
+      
+      // Close after a brief success state
+      setTimeout(() => {
+        setOpen(false);
+        setText('');
+        setSubmitted(false);
+      }, 1000);
 
-    const rollbackFn = () => setSubmitted(false);
-
-    if (showSnackbar) {
-      showSnackbar(`Added ${type === 'note' ? 'Note' : 'Project'}`, executionFn, rollbackFn);
-      // Immediately close and clear text to avoid stay-open feeling
-      setOpen(false);
-      setText('');
+    } catch (err) {
+      console.error("Execution failed:", err);
       setSubmitted(false);
-    } else {
-      executionFn();
+      if (showToast) {
+        showToast('Failed to reach Notion. Please try again.', 'error');
+      }
     }
   };
 
@@ -119,7 +105,7 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
 
   return (
     <>
-      <button className="fab" onClick={() => { setOpen(true); setSubmitted(false); }} aria-label="Smart Capture">
+      <button className="fab" onClick={() => setOpen(true)} aria-label="Smart Capture">
         <Sparkles size={22} color="white" />
       </button>
 

@@ -1,89 +1,63 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { notion, DATABASE_IDS, getZones } from './_lib/notion';
-import { extractNoteWithAI } from './_lib/ai';
-import { normalizeUrgency } from './_lib/utils';
+import { extractNoteWithAI } from './_lib/ai.js';
+import { notion, DATABASE_IDS } from './_lib/notion.js';
+import { ZONE_MAP, PROFILE_ID, ICONS } from './_lib/constants.js';
 import { z } from 'zod';
 
-const RequestSchema = z.object({
-    text: z.string().optional(),
-    prompt: z.string().optional(),
-    message: z.object({
-        text: z.string()
-    }).optional(),
-    modelId: z.string().optional(),
-    primaryModelId: z.string().optional(),
-    fallbackModelId: z.string().optional()
-});
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
 
+export async function POST(req: Request) {
     try {
-        const body = RequestSchema.parse(req.body);
-        const text = body.prompt || body.text || body.message?.text;
+        const body = await req.json();
+        const text = body.text || body.message?.text;
+        const modelId = body.modelId || 'google:gemini-2.5-flash';
 
         if (!text) {
-            return res.status(400).json({ error: 'No text provided' });
+            return Response.json({ success: false, error: 'No text provided' }, { status: 400, headers: corsHeaders });
         }
 
-        // 1. AI Extraction (n8n Logic)
-        const extracted = await extractNoteWithAI(
-            text,
-            body.modelId,
-            body.primaryModelId,
-            body.fallbackModelId
-        );
+        const note = await extractNoteWithAI(text, modelId);
+        const matchedZoneId = ZONE_MAP[note.zone as keyof typeof ZONE_MAP] || ZONE_MAP["Other"];
 
-        // 2. Zone Mapping (n8n Map)
-        const zones = await getZones();
-        const formattedZone = extracted.zone.charAt(0).toUpperCase() + extracted.zone.slice(1);
-        const matchedZone = zones.find(z => z.name === formattedZone) || 
-                          zones.find(z => z.name === 'Other');
-
-        // 3. Create Notion Page (n8n Mapping)
         const response = await notion.pages.create({
             parent: { database_id: DATABASE_IDS.NOTES },
-            icon: {
-                type: 'emoji',
-                emoji: '📒'
-            },
+            icon: { emoji: ICONS.NOTE as any },
             properties: {
-                'Name': {
-                    title: [{ text: { content: extracted.title } }]
-                },
-                'Type': {
-                    select: { name: extracted.type.charAt(0).toUpperCase() + extracted.type.slice(1) }
-                },
-                'Zones': {
-                    relation: matchedZone ? [{ id: matchedZone.id }] : []
-                },
-                'URL': {
-                    url: extracted.url || null
-                },
-                'Created Date': {
-                    date: { start: new Date().toISOString().split('T')[0] }
-                },
-                'Profile': {
-                    relation: [{ id: DATABASE_IDS.PROFILE }]
-                },
-                'Status': {
-                    status: { name: 'Inbox' }
-                }
+                'Name': { title: [{ text: { content: note.title } }] },
+                'Type': { select: { name: note.type === 'resource' ? 'Resource' : 'Capture' } },
+                'Status': { status: { name: 'Inbox' } },
+                'URL': note.url ? { url: note.url } : undefined as any,
+                'Zones': { relation: [{ id: matchedZoneId }] },
+                'Profile': { relation: [{ id: PROFILE_ID }] }
             },
             children: [
                 {
                     object: 'block',
                     type: 'paragraph',
                     paragraph: {
-                        rich_text: [{ text: { content: extracted.summary } }]
+                        rich_text: [{ type: 'text', text: { content: note.summary } }]
                     }
                 }
             ]
         });
 
-        return res.status(200).json({ success: true, pageId: response.id, extracted });
+        return Response.json({
+            success: true,
+            note_id: response.id,
+            extracted: note
+        }, { headers: corsHeaders });
+
     } catch (error: any) {
-        console.error('Error adding note:', error);
-        return res.status(500).json({ error: error.message });
+        return Response.json({
+            success: false,
+            error: error.message || 'Internal Server Error'
+        }, { status: 500, headers: corsHeaders });
     }
 }

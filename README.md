@@ -1,16 +1,28 @@
-# React + Vite
+# Aura - Ready for Vercel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is a unified deployment folder containing both the React frontend and the Node.js API serverless functions.
 
-Currently, two official plugins are available:
+## 🚀 Deployment Instructions
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1.  **Install Vercel CLI** (if not already installed):
+    ```bash
+    npm i -g vercel
+    ```
 
-## React Compiler
+2.  **Deploy**:
+    From this directory (`ready-for-vercel`), run:
+    ```bash
+    vercel
+    ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+3.  **Configure Environment Variables**:
+    Ensure the following secrets are set in your Vercel project:
+    - `NOTION_API_KEY`
+    - `GOOGLE_GENERATIVE_AI_API_KEY` (if using Google models)
+    - `GROQ_API_KEY` (if using Groq models)
 
-## Expanding the ESLint configuration
+## 📁 Structure
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `/api`: Vercel Serverless Functions (Node.js/TypeScript).
+- `/src`: React Frontend (Vite).
+- `vercel.json`: Handles routing for the SPA and API.

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { Check, X } from 'lucide-react';
 import './index.css';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
@@ -12,8 +13,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Undo Snackbar State
-  const [snackbar, setSnackbar] = useState({ visible: false, message: '', onUndo: null, submitRef: null });
+  // Notification Snackbar State
+  const [snackbar, setSnackbar] = useState({ visible: false, message: '', type: 'undo', onUndo: null, submitRef: null });
   const snackbarTimer = useRef(null);
 
   // Real data state
@@ -63,7 +64,8 @@ export default function App() {
         }).map(t => ({
           id: t.id,
           title: t.title,
-          completed: t.raw.Status?.status?.name === 'Completed'
+          completed: t.raw.Status?.status?.name === 'Completed',
+          isOverdue: t.isOverdue // Mapping from backend processed flag
         }));
 
         return {
@@ -73,6 +75,7 @@ export default function App() {
           type: p.type,
           importance: p.importance,
           aura: p.aura,
+          isOverdue: p.isOverdue, // Mapping from backend processed flag
           tasks: projectTasks
         };
       });
@@ -113,13 +116,27 @@ export default function App() {
       } catch (e) { console.error('Silent execution failed', e); }
     };
 
-    setSnackbar({ visible: true, message, onUndo: rollbackFn, submitRef: wrappedExecution });
+    setSnackbar({ visible: true, message, type: 'undo', onUndo: rollbackFn, submitRef: wrappedExecution });
 
     snackbarTimer.current = setTimeout(() => {
       wrappedExecution();
       setSnackbar(s => ({ ...s, visible: false, submitRef: null }));
       snackbarTimer.current = null;
     }, 4000);
+  }, [snackbar.submitRef]);
+
+  const showToast = useCallback((message, type = 'success') => {
+    if (snackbarTimer.current) {
+      clearTimeout(snackbarTimer.current);
+      if (snackbar.submitRef) snackbar.submitRef();
+    }
+
+    setSnackbar({ visible: true, message, type, onUndo: null, submitRef: null });
+
+    snackbarTimer.current = setTimeout(() => {
+      setSnackbar(s => ({ ...s, visible: false }));
+      snackbarTimer.current = null;
+    }, 3000);
   }, [snackbar.submitRef]);
 
   const handleUndo = useCallback(() => {
@@ -350,6 +367,7 @@ export default function App() {
       <BottomNav active={activeTab} onChange={setActiveTab} />
       <FAB
         showSnackbar={showSnackbar}
+        showToast={showToast}
         onProjectGenerated={(plan) => {
           const newProject = {
             id: 'temp-' + Date.now(),
@@ -369,41 +387,51 @@ export default function App() {
         }}
       />
 
-      {/* Undo Snackbar */}
+      {/* Notification Snackbar */}
       {snackbar.visible && (
         <div style={{
           position: 'fixed',
           bottom: 90,
           left: 20,
           right: 20,
-          background: 'var(--bg-elevated)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
+          background: snackbar.type === 'error' ? 'rgba(239, 68, 68, 0.95)' : 'var(--bg-elevated)',
+          backdropFilter: 'blur(10px)',
+          border: snackbar.type === 'error' ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-strong)',
+          borderRadius: 16,
           padding: '12px 16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          zIndex: 100,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
-          animation: 'slideUp 0.3s ease-out'
+          zIndex: 1000,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
-          <span style={{ color: 'var(--text-primary)', fontSize: 13, fontWeight: 500 }}>
-            {snackbar.message}
-          </span>
-          <button
-            onClick={handleUndo}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'var(--aura)',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-              padding: '4px 8px'
-            }}
-          >
-            UNDO
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {snackbar.type === 'success' && <Check size={18} color="var(--green)" />}
+            {snackbar.type === 'error' && <X size={18} color="white" />}
+            <span style={{ color: 'white', fontSize: 13, fontWeight: 600 }}>
+              {snackbar.message}
+            </span>
+          </div>
+          {snackbar.type === 'undo' && (
+            <button
+              onClick={handleUndo}
+              style={{
+                background: 'rgba(167, 139, 250, 0.15)',
+                border: 'none',
+                color: 'var(--aura)',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: 8,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
+              UNDO
+            </button>
+          )}
         </div>
       )}
     </div>

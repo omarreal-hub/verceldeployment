@@ -109,8 +109,14 @@ function ProjectCard({ project, onToggleTask }) {
       border: '1px solid var(--border-strong)', overflow: 'hidden',
     }}>
       <div style={{ padding: '14px 16px 12px' }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.4 }}>
+        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
           {project.name}
+          {project.isOverdue && (
+            <span className="overdue-pill">
+              <Icons.AlertCircle size={10} strokeWidth={3} />
+              Overdue
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           <span style={{

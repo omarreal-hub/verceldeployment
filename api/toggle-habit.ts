@@ -1,10 +1,4 @@
 import { notion } from './_lib/notion.js';
-import { z } from 'zod';
-
-const ToggleSchema = z.object({
-    habit_id: z.string().min(1),
-    action: z.literal('toggle')
-});
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -18,26 +12,24 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { habit_id } = ToggleSchema.parse(body);
+        const { habit_id, action } = await req.json();
 
-        const page = await notion.pages.retrieve({ page_id: habit_id }) as any;
-        const currentValue = page.properties.Done?.checkbox || false;
+        if (!habit_id || action !== 'toggle') {
+            return Response.json({ error: 'Invalid parameters' }, { status: 400, headers: corsHeaders });
+        }
+
+        const page: any = await notion.pages.retrieve({ page_id: habit_id });
+        const currentStatus = page.properties.Done?.checkbox;
 
         await notion.pages.update({
             page_id: habit_id,
             properties: {
-                Done: {
-                    checkbox: !currentValue
-                }
+                'Done': { checkbox: !currentStatus }
             }
         });
 
-        return Response.json({ success: true, newStatus: !currentValue }, { headers: corsHeaders });
-    } catch (err: any) {
-        return Response.json({ error: err.message || String(err) }, {
-            status: 500,
-            headers: corsHeaders
-        });
+        return Response.json({ success: true, newStatus: !currentStatus }, { headers: corsHeaders });
+    } catch (error: any) {
+        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

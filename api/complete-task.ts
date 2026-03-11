@@ -1,9 +1,4 @@
 import { notion } from './_lib/notion.js';
-import { z } from 'zod';
-
-const RequestSchema = z.object({
-    page_id: z.string().min(5, "A valid Notion page_id is required."),
-});
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,39 +12,27 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { page_id } = RequestSchema.parse(body);
+        const { page_id } = await req.json();
 
-        const page = await notion.pages.retrieve({ page_id: page_id }) as any;
+        if (!page_id) {
+            return Response.json({ error: 'Missing page_id' }, { status: 400, headers: corsHeaders });
+        }
+
+        const page: any = await notion.pages.retrieve({ page_id });
         const currentStatus = page.properties.Status?.status?.name;
-        const isCompleted = currentStatus === 'Completed';
+        const newStatus = currentStatus === 'Completed' ? 'Not started' : 'Completed';
+        const today = new Date().toISOString().split('T')[0];
 
-        const response = await notion.pages.update({
-            page_id: page_id,
+        await notion.pages.update({
+            page_id,
             properties: {
-                'Status': { status: { name: isCompleted ? 'In progress' : 'Completed' } },
-                'Completed Date': isCompleted ? { date: null } : { date: { start: new Date().toISOString() } }
+                'Status': { status: { name: newStatus } },
+                'Completed Date': newStatus === 'Completed' ? { date: { start: today } } : { date: null } as any
             }
         });
 
-        return Response.json({
-            success: true,
-            message: `Task successfully marked as ${isCompleted ? 'In progress' : 'Completed'}.`,
-            page_id: response.id,
-            newStatus: isCompleted ? 'In progress' : 'Completed'
-        }, { headers: corsHeaders });
-
+        return Response.json({ success: true, newStatus }, { headers: corsHeaders });
     } catch (error: any) {
-        if (error instanceof z.ZodError) {
-            return Response.json({ success: false, error: 'Invalid Payload', details: error.issues }, {
-                status: 400,
-                headers: corsHeaders
-            });
-        }
-
-        return Response.json({
-            success: false,
-            error: error.message || 'Internal Server Error'
-        }, { status: 500, headers: corsHeaders });
+        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

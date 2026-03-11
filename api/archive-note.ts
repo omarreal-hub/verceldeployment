@@ -1,9 +1,4 @@
 import { notion } from './_lib/notion.js';
-import { z } from 'zod';
-
-const BodySchema = z.object({
-    noteId: z.string().min(1)
-});
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,22 +12,21 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { noteId } = BodySchema.parse(body);
+        const { noteId } = await req.json();
+
+        if (!noteId) {
+            return Response.json({ error: 'Missing noteId' }, { status: 400, headers: corsHeaders });
+        }
 
         await notion.pages.update({
             page_id: noteId,
             properties: {
-                Archive: { checkbox: true }
+                'Archive': { checkbox: true }
             }
         });
 
-        return Response.json({ success: true, archived: true }, { headers: corsHeaders });
+        return Response.json({ success: true }, { headers: corsHeaders });
     } catch (error: any) {
-        console.error('Archive Note Error:', error);
-        return Response.json(
-            { error: 'Failed to archive note', details: error.message || String(error) },
-            { status: 500, headers: corsHeaders }
-        );
+        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

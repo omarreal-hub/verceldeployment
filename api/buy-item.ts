@@ -1,9 +1,4 @@
-import { notion, DATABASE_IDS } from './_lib/notion.js';
-import { z } from 'zod';
-
-const BuySchema = z.object({
-    itemId: z.string().min(1)
-});
+import { notion } from './_lib/notion.js';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,40 +12,24 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { itemId } = BuySchema.parse(body);
+        const { itemId } = await req.json();
 
-        const item = await notion.pages.retrieve({ page_id: itemId }) as any;
-        const price = item.properties.Price?.number || 0;
-        const isClaimed = item.properties.Checkbox?.checkbox || false;
-
-        if (isClaimed) {
-            return Response.json({ error: 'Item already claimed' }, { status: 400, headers: corsHeaders });
+        if (!itemId) {
+            return Response.json({ error: 'Missing itemId' }, { status: 400, headers: corsHeaders });
         }
 
-        const profile = await notion.pages.retrieve({ page_id: DATABASE_IDS.PROFILE }) as any;
-        const auraText = profile.properties['Aura']?.formula?.string || '';
-        const totalMatch = auraText.match(/TOTAL\s*:\s*(\d+)/i);
-        const userAura = totalMatch ? parseInt(totalMatch[1], 10) : 0;
-
-        if (userAura < price) {
-            return Response.json({ error: 'Not enough Aura' }, { status: 400, headers: corsHeaders });
-        }
+        const today = new Date().toISOString().split('T')[0];
 
         await notion.pages.update({
             page_id: itemId,
             properties: {
-                Checkbox: {
-                    checkbox: true
-                }
+                'Claimed': { checkbox: true },
+                'Date': { date: { start: today } }
             }
         });
 
-        return Response.json({ success: true, remainingAura: userAura - price }, { headers: corsHeaders });
-    } catch (err: any) {
-        return Response.json({ error: err.message || String(err) }, {
-            status: 500,
-            headers: corsHeaders
-        });
+        return Response.json({ success: true }, { headers: corsHeaders });
+    } catch (error: any) {
+        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

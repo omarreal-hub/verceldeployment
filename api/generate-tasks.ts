@@ -1,112 +1,95 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { notion, DATABASE_IDS, getZones } from './_lib/notion';
-import { generatePlanWithAI } from './_lib/ai';
-import { normalizeUrgency, normalizeImportance, validateOrProvideDefaultDate } from './_lib/utils';
-import { z } from 'zod';
+import { generatePlanWithAI } from './_lib/ai.js';
+import { notion, DATABASE_IDS } from './_lib/notion.js';
+import { ZONE_MAP, PROFILE_ID, ICONS } from './_lib/constants.js';
 
-const RequestSchema = z.object({
-    text: z.string().optional(),
-    prompt: z.string().optional(),
-    message: z.object({
-        text: z.string()
-    }).optional(),
-    modelId: z.string().optional(),
-    primaryModelId: z.string().optional(),
-    fallbackModelId: z.string().optional()
-});
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
+export async function OPTIONS() {
+    return new Response(null, { headers: corsHeaders });
+}
 
+export async function POST(req: Request) {
     try {
-        const body = RequestSchema.parse(req.body);
-        const text = body.prompt || body.text || body.message?.text;
+        const body = await req.json();
+        const text = body.prompt || body.text;
+        const modelId = body.modelId || 'google:gemini-2.5-flash';
 
         if (!text) {
-            return res.status(400).json({ error: 'No text provided' });
+            return Response.json({ error: 'No prompt provided' }, { status: 400, headers: corsHeaders });
         }
 
-        // 1. AI Generation (n8n Logic)
-        const plan = await generatePlanWithAI(
-            text,
-            body.modelId,
-            body.primaryModelId,
-            body.fallbackModelId
-        );
+        const plan = await generatePlanWithAI(text, 'smart', modelId);
 
-        const zones = await getZones();
         const results = [];
-
-        for (const item of plan) {
-            const { project, tasks } = item;
-
-            // Mapping Zone ID
-            const matchedZone = zones.find(z => z.name.toLowerCase() === project.zone_id.toLowerCase()) || 
-                              zones.find(z => z.name === 'Other');
-
-            // 2. Create Project (n8n Mapping)
-            const createdProject = await notion.pages.create({
+        for (const item of plan.projects) {
+            const matchedZoneId = ZONE_MAP[item.project.zone_id as keyof typeof ZONE_MAP] || ZONE_MAP["Other"];
+            
+            const projectResponse = await notion.pages.create({
                 parent: { database_id: DATABASE_IDS.PROJECTS },
-                icon: { type: 'emoji', emoji: '📂' },
+                icon: { emoji: ICONS.PROJECT as any },
                 properties: {
-                    'Name': { title: [{ text: { content: project.name } }] },
-                    'Due Date': { date: { start: validateOrProvideDefaultDate(project.final_due_date) } },
-                    'Type': { select: { name: project.type } },
-                    'Aura Value': { number: project.aura_value || 0 },
-                    'Urgency': { select: { name: normalizeUrgency(project.urgency) } },
-                    'Importance': { select: { name: normalizeImportance(project.importance) } },
-                    'Zones': { relation: matchedZone ? [{ id: matchedZone.id }] : [] },
-                    'Profile': { relation: [{ id: DATABASE_IDS.PROFILE }] },
-                    'start date': { date: { start: validateOrProvideDefaultDate(project.start_date) } }
+                    'Name': { title: [{ text: { content: item.project.name } }] },
+                    'Type': { select: { name: item.project.type === 'QUEST' ? 'QUEST' : 'Special Missions' } },
+                    'Status': { status: { name: 'Not started' } },
+                    'Importance': { select: { name: item.project.importance === 'important' ? 'Important' : 'Not Important' } },
+                    'Urgency': { select: { name: item.project.urgency === 'urgent' ? 'Urgent' : 'Not Urgent' } },
+                    'Aura Value': { number: item.project.aura_value },
+                    'start date': { date: { start: item.project.start_date } },
+                    'Due Date': { date: { start: item.project.final_due_date } },
+                    'Zones': { relation: [{ id: matchedZoneId }] },
+                    'Profile': { relation: [{ id: PROFILE_ID }] }
                 }
             });
 
-            // 3. Create Smart Note if exists (n8n Mapping)
-            if (project.smart_note) {
-                await notion.pages.create({
-                    parent: { database_id: DATABASE_IDS.PROJECT_NOTES },
-                    icon: { type: 'emoji', emoji: '📝' },
-                    properties: {
-                        'Note': { title: [{ text: { content: project.smart_note.title } }] },
-                        'Date': { date: { start: validateOrProvideDefaultDate(project.smart_note.created_at) } },
-                        'Projects': { relation: [{ id: createdProject.id }] }
-                    },
-                    children: [
-                        {
-                            object: 'block',
-                            type: 'paragraph',
-                            paragraph: {
-                                rich_text: [{ text: { content: project.smart_note.content } }]
-                            }
-                        }
-                    ]
-                });
-            }
-
-            // 4. Create Tasks (n8n Mapping)
-            for (const task of tasks) {
-                await notion.pages.create({
+            const taskResults = [];
+            for (const t of item.tasks) {
+                const taskStatus = t.status === 'Completed' ? 'Completed' : 'Not started';
+                const tr = await notion.pages.create({
                     parent: { database_id: DATABASE_IDS.TASKS },
-                    icon: { type: 'emoji', emoji: '☑' },
+                    icon: { emoji: ICONS.TASK as any },
                     properties: {
-                        'Task Name': { title: [{ text: { content: task.name } }] },
-                        'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
-                        'Project': { relation: [{ id: createdProject.id }] },
-                        'Zone': { relation: matchedZone ? [{ id: matchedZone.id }] : [] },
-                        'Profile': { relation: [{ id: DATABASE_IDS.PROFILE }] },
-                        'Importance': { select: { name: normalizeImportance(project.importance) } },
-                        'Urgency': { select: { name: normalizeUrgency(project.urgency) } },
-                        'Status': { status: { name: 'Not started' } }
+                        'Name': { title: [{ text: { content: t.name } }] },
+                        'Status': { status: { name: taskStatus } },
+                        'Due Date': { date: { start: t.do_date } },
+                        'Project': { relation: [{ id: projectResponse.id }] },
+                        'Profile': { relation: [{ id: PROFILE_ID }] }
                     }
                 });
+                taskResults.push({ id: tr.id, name: t.name });
             }
 
-            results.push({ projectId: createdProject.id, taskCount: tasks.length });
+            if (item.project.smart_note) {
+                await notion.pages.create({
+                    parent: { database_id: DATABASE_IDS.NOTES },
+                    icon: { emoji: ICONS.NOTE as any },
+                    properties: {
+                        'Name': { title: [{ text: { content: item.project.smart_note.title } }] },
+                        'Type': { select: { name: 'Capture' } },
+                        'Status': { status: { name: 'Inbox' } },
+                        'Zones': { relation: [{ id: matchedZoneId }] },
+                        'Project Notes': { relation: [{ id: projectResponse.id }] },
+                        'Profile': { relation: [{ id: PROFILE_ID }] }
+                    },
+                    children: [{
+                        object: 'block',
+                        type: 'paragraph',
+                        paragraph: { rich_text: [{ type: 'text', text: { content: item.project.smart_note.content } }] }
+                    }]
+                });
+            }
+
+            results.push({
+                project: { id: projectResponse.id, name: item.project.name },
+                tasks: taskResults
+            });
         }
 
-        return res.status(200).json({ success: true, results });
+        return Response.json({ success: true, plan: results[0], all: results }, { headers: corsHeaders });
     } catch (error: any) {
-        console.error('Error generating projects/tasks:', error);
-        return res.status(500).json({ error: error.message });
+        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

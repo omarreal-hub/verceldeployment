@@ -221,7 +221,7 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
             </span>
 
             {project.zones && project.zones.length > 0 && (
-              <span className="hide-on-mobile" style={{
+              <span style={{
                 fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
                 background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)',
                 border: '1px solid var(--border-subtle)',

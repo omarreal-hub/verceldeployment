@@ -40,13 +40,18 @@ export async function POST(req: Request) {
                 }
             }),
 
-            // 3. Projects (Active, Starting Today, OR Completed Today)
+            // 3. Projects (Active, Starting Today/Past, OR Completed Today)
             notion.databases.query({
                 database_id: '207f2317-55ae-8135-abf8-ea6150021c30',
                 filter: {
                     or: [
                         { property: 'Status', status: { equals: 'In progress' } },
-                        { property: 'start date', date: { equals: todayStr } },
+                        {
+                            and: [
+                                { property: 'Status', status: { equals: 'Not started' } },
+                                { property: 'start date', date: { on_or_before: todayStr } }
+                            ]
+                        },
                         {
                             and: [
                                 { property: 'Status', status: { equals: 'Completed' } },

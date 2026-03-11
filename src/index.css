@@ -277,6 +277,10 @@ body,
   letter-spacing: 0.03em;
 }
 
+.show-on-mobile {
+  display: none;
+}
+
 /* Buy button */
 .buy-btn {
   font-size: 11px;
@@ -495,12 +499,12 @@ body,
 
   /* Project Card Scaling */
   .proj-header {
-    margin-bottom: 8px !important;
-    gap: 8px !important;
+    margin-bottom: 6px !important;
+    gap: 4px !important;
   }
 
   .proj-title {
-    font-size: 13px !important;
+    font-size: clamp(12px, 3.5vw, 14.5px) !important;
   }
 
   .proj-meta {
@@ -531,5 +535,14 @@ body,
 
   .habit-aura-badge span {
     font-size: 9px !important;
+  }
+
+  /* Helper to hide text but keep icon */
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .show-on-mobile {
+    display: inline-flex !important;
   }
 }

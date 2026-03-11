@@ -216,18 +216,22 @@ export async function POST(req: Request) {
         const allShopResults = shopRes.status === 'fulfilled' ? shopRes.value.results : [];
         const shop = allShopResults
             .filter((s: any) => !s.properties.Claimed?.checkbox)
-            .map((s: any) => ({
-                id: s.id, 
-                title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
-                price: s.properties.Price?.number || 0, 
-                claimed: false
-            }));
+            .map((s: any) => {
+                return {
+                    id: s.id, 
+                    title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
+                    name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
+                    price: s.properties.Price?.number || 0, 
+                    claimed: false
+                };
+            });
 
         const recentPurchases = allShopResults
             .filter((s: any) => s.properties.Claimed?.checkbox)
             .map((s: any) => ({
                 id: s.id, 
                 title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
+                name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
                 price: s.properties.Price?.number || 0, 
                 date: s.properties.Date?.date?.start || s.properties['Claimed Date']?.date?.start || todayStr
             }));

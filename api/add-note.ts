@@ -59,7 +59,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
         });
         
         const matchedZone = zones.find(z => 
-            z.name.toLowerCase() === extracted.zone.toLowerCase()
+            z.name.toLowerCase() === (extracted.zone || 'Other').toLowerCase()
         );
         const zoneId = matchedZone?.id || null;
 
@@ -76,10 +76,23 @@ export default async function (req: VercelRequest, res: VercelResponse) {
             properties['Zones'] = { relation: [{ id: zoneId }] };
         }
 
+        if (extracted.url) {
+            properties['URL'] = { url: extracted.url };
+        }
+
         const page = await notion.pages.create({
             parent: { database_id: DATABASE_IDS.NOTES },
-            icon: { emoji: '📒' },
-            properties
+            icon: { emoji: extracted.type === 'Resource' ? '🔗' : '📒' },
+            properties,
+            children: [
+                {
+                    object: 'block',
+                    type: 'paragraph',
+                    paragraph: {
+                        rich_text: [{ type: 'text', text: { content: extracted.summary || text } }]
+                    }
+                }
+            ]
         });
 
         console.log('[Add Note] Success! Page ID:', page.id);

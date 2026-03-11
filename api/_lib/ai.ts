@@ -16,9 +16,9 @@ export const ProjectSchema = z.object({
     importance: z.enum(['Important', 'Not Important']),
     urgency: z.enum(['Urgent', 'Not Urgent']),
     type: z.string().optional(),
-    aura_value: z.number().optional(),
-    start_date: z.string().optional(),
-    final_due_date: z.string().optional(),
+    aura_value: z.number().optional().describe("A difficulty/reward score from 1-100"),
+    start_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
+    final_due_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
     zone_name: z.string(),
     smart_note: SmartNoteSchema
 });
@@ -27,7 +27,7 @@ export const TaskSchema = z.object({
     name: z.string(),
     importance: z.enum(['Important', 'Not Important']).optional(),
     urgency: z.enum(['Urgent', 'Not Urgent']).optional(),
-    do_date: z.string().optional(),
+    do_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
     status: z.string().optional()
 });
 
@@ -39,8 +39,9 @@ export const TaskGenerationSchema = z.array(z.object({
 export const NoteExtractionSchema = z.object({
     title: z.string(),
     type: z.enum(['Capture', 'Resource']),
-    zone_name: z.string(),
-    url: z.string().optional()
+    zone: z.string().describe("Categorize into: Health, Education, Finances, Business, Personal, or Other"),
+    url: z.string().optional(),
+    summary: z.string().describe("A concise summary of the note content")
 });
 
 export type GeneratedTaskPlan = z.infer<typeof TaskGenerationSchema>;
@@ -78,8 +79,11 @@ const NOTE_EXTRACTOR_SYSTEM = `Analyze the following text from the user.
 Extract metadata strictly following these rules:
 - title: Concise and clear.
 - type: 'Capture' or 'Resource' (Resource if it contains a URL).
-- zone: Categorize (Work, Personal, etc.).
-- url: Extract the URL if present.
+- zone: Categorize (Health, Education, Finances, Business, Personal, Other).
+- url: Extract the URL if present, otherwise null.
+- summary: A clear summary of the content.
+
+Current Date: ${new Date().toISOString().split('T')[0]}
 
 IMPORTANT: Use ONLY 'Important'/'Not Important' for importance and 'Urgent'/'Not Urgent' for urgency.`;
 

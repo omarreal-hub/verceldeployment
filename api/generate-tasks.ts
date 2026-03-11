@@ -1,5 +1,6 @@
 import { notion, DATABASE_IDS, getZones } from './_lib/notion.js';
 import { generatePlanWithAI } from './_lib/ai.js';
+import { normalizeImportance, normalizeUrgency, validateOrProvideDefaultDate } from './_lib/utils.js';
 import { z } from 'zod';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -48,8 +49,11 @@ export default async function (req: VercelRequest, res: VercelResponse) {
             const projectProps: any = {
                 'Name': { title: [{ text: { content: plan.project.name } }] },
                 'Status': { status: { name: 'Not started' } },
-                'Importance': { select: { name: plan.project.importance } },
-                'Urgency': { select: { name: plan.project.urgency } },
+                'Importance': { select: { name: normalizeImportance(plan.project.importance) } },
+                'Urgency': { select: { name: normalizeUrgency(plan.project.urgency) } },
+                'Aura Value': { number: plan.project.aura_value || 50 },
+                'start date': { date: { start: validateOrProvideDefaultDate(plan.project.start_date) } },
+                'Due Date': { date: { start: validateOrProvideDefaultDate(plan.project.final_due_date) } },
                 'Profile': { relation: [{ id: DATABASE_IDS.PROFILE || '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }] }
             };
 
@@ -68,14 +72,16 @@ export default async function (req: VercelRequest, res: VercelResponse) {
             const taskIds = [];
             for (const task of plan.tasks) {
                 const taskProps: any = {
-                    'Name': { title: [{ text: { content: task.name } }] },
-                    'Status': { status: { name: task.status || 'Not started' } }, // Using Status for Tasks
-                    'Importance': { select: { name: task.importance } },
-                    'Urgency': { select: { name: task.urgency } },
-                    'Project': { relation: [{ id: project.id }] }
+                    'Task Name': { title: [{ text: { content: task.name } }] },
+                    'Status': { status: { name: task.status || 'Not started' } },
+                    'Importance': { select: { name: normalizeImportance(task.importance || plan.project.importance) } },
+                    'Urgency': { select: { name: normalizeUrgency(task.urgency || plan.project.urgency) } },
+                    'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date || plan.project.start_date) } },
+                    'Project': { relation: [{ id: project.id }] },
+                    'Profile': { relation: [{ id: DATABASE_IDS.PROFILE || '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }] }
                 };
 
-                if (zoneId) taskProps['Zone'] = { relation: [{ id: zoneId }] }; // Singular Zone for Tasks
+                if (zoneId) taskProps['Zone'] = { relation: [{ id: zoneId }] };
 
                 const taskPage = await notion.pages.create({
                     parent: { database_id: DATABASE_IDS.TASKS },
@@ -90,11 +96,21 @@ export default async function (req: VercelRequest, res: VercelResponse) {
                 console.log(`[Generate Tasks] Creating smart note for: ${plan.project.name}`);
                 await notion.pages.create({
                     parent: { database_id: DATABASE_IDS.PROJECT_NOTES },
+                    icon: { emoji: '📝' },
                     properties: {
                         'Note': { title: [{ text: { content: plan.project.smart_note.title } }] },
                         'Project': { relation: [{ id: project.id }] },
-                        'Summary': { rich_text: [{ text: { content: plan.project.smart_note.summary } }] }
-                    }
+                        'Date': { date: { start: validateOrProvideDefaultDate(plan.project.smart_note.created_at) } }
+                    },
+                    children: [
+                        {
+                            object: 'block',
+                            type: 'paragraph',
+                            paragraph: {
+                                rich_text: [{ type: 'text', text: { content: plan.project.smart_note.content } }]
+                            }
+                        }
+                    ]
                 }).catch(err => console.warn('[Generate Tasks] Failed to create smart note:', err));
             }
 

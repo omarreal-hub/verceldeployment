@@ -92,7 +92,7 @@ export async function generatePlanWithAI(
     prompt: string,
     modelId: string = 'smart',
     primaryModelId: string = 'google:gemini-2.0-flash',
-    fallbackModelId: string = 'groq:llama3-8b-8192'
+    fallbackModelId: string = 'groq:llama-3.1-8b-instant'
 ): Promise<GeneratedTaskPlan> {
     const model = getModelById(modelId === 'fallback' ? fallbackModelId : (modelId === 'smart' || modelId === 'primary' ? primaryModelId : modelId));
 
@@ -124,7 +124,7 @@ export async function extractNoteWithAI(
     text: string,
     modelId: string = 'smart',
     primaryModelId: string = 'google:gemini-2.0-flash',
-    fallbackModelId: string = 'groq:llama3-8b-8192'
+    fallbackModelId: string = 'groq:llama-3.1-8b-instant'
 ): Promise<ExtractedNote> {
     const model = getModelById(modelId === 'fallback' ? fallbackModelId : (modelId === 'smart' || modelId === 'primary' ? primaryModelId : modelId));
 

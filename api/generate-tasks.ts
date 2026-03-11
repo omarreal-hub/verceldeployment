@@ -1,6 +1,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { notion, DATABASE_IDS, getZones } from './_lib/notion';
 import { generatePlanWithAI } from './_lib/ai';
+import { normalizeUrgency, normalizeImportance, validateOrProvideDefaultDate } from './_lib/utils';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
@@ -34,7 +35,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
 
         const zones = await getZones();
-
         const results = [];
 
         for (const item of plan) {
@@ -50,14 +50,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 icon: { type: 'emoji', emoji: '📂' },
                 properties: {
                     'Name': { title: [{ text: { content: project.name } }] },
-                    'Due Date': { date: { start: project.final_due_date } },
+                    'Due Date': { date: { start: validateOrProvideDefaultDate(project.final_due_date) } },
                     'Type': { select: { name: project.type } },
-                    'Aura Value': { number: project.aura_value },
-                    'Urgency': { select: { name: project.urgency.charAt(0).toUpperCase() + project.urgency.slice(1) } },
-                    'Importance': { select: { name: project.importance.charAt(0).toUpperCase() + project.importance.slice(1) } },
+                    'Aura Value': { number: project.aura_value || 0 },
+                    'Urgency': { select: { name: normalizeUrgency(project.urgency) } },
+                    'Importance': { select: { name: normalizeImportance(project.importance) } },
                     'Zones': { relation: matchedZone ? [{ id: matchedZone.id }] : [] },
                     'Profile': { relation: [{ id: DATABASE_IDS.PROFILE }] },
-                    'start date': { date: { start: project.start_date } }
+                    'start date': { date: { start: validateOrProvideDefaultDate(project.start_date) } }
                 }
             });
 
@@ -68,7 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     icon: { type: 'emoji', emoji: '📝' },
                     properties: {
                         'Note': { title: [{ text: { content: project.smart_note.title } }] },
-                        'Date': { date: { start: project.smart_note.created_at } },
+                        'Date': { date: { start: validateOrProvideDefaultDate(project.smart_note.created_at) } },
                         'Projects': { relation: [{ id: createdProject.id }] }
                     },
                     children: [
@@ -90,12 +90,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     icon: { type: 'emoji', emoji: '☑' },
                     properties: {
                         'Task Name': { title: [{ text: { content: task.name } }] },
-                        'Due Date': { date: { start: task.do_date } },
+                        'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
                         'Project': { relation: [{ id: createdProject.id }] },
                         'Zone': { relation: matchedZone ? [{ id: matchedZone.id }] : [] },
                         'Profile': { relation: [{ id: DATABASE_IDS.PROFILE }] },
-                        'Importance': { select: { name: project.importance.charAt(0).toUpperCase() + project.importance.slice(1) } },
-                        'Urgency': { select: { name: project.urgency.charAt(0).toUpperCase() + project.urgency.slice(1) } }
+                        'Importance': { select: { name: normalizeImportance(project.importance) } },
+                        'Urgency': { select: { name: normalizeUrgency(project.urgency) } },
+                        'Status': { status: { name: 'Not started' } }
                     }
                 });
             }

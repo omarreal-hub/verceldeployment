@@ -1,10 +1,12 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { notion, DATABASE_IDS, getZones } from './_lib/notion';
 import { extractNoteWithAI } from './_lib/ai';
+import { normalizeUrgency } from './_lib/utils';
 import { z } from 'zod';
 
 const RequestSchema = z.object({
     text: z.string().optional(),
+    prompt: z.string().optional(),
     message: z.object({
         text: z.string()
     }).optional(),
@@ -18,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = RequestSchema.parse(req.body);
-        const text = body.text || body.message?.text;
+        const text = body.prompt || body.text || body.message?.text;
 
         if (!text) {
             return res.status(400).json({ error: 'No text provided' });
@@ -43,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             parent: { database_id: DATABASE_IDS.NOTES },
             icon: {
                 type: 'emoji',
-                emoji: extracted.type === 'resource' ? '🔗' : '📒'
+                emoji: '📒'
             },
             properties: {
                 'Name': {
@@ -63,6 +65,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 },
                 'Profile': {
                     relation: [{ id: DATABASE_IDS.PROFILE }]
+                },
+                'Status': {
+                    status: { name: 'Inbox' }
                 }
             },
             children: [

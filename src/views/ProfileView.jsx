@@ -456,8 +456,9 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {note.title}
                   </div>
-                  <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>
-                    {new Date(note.created_time).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={10} style={{ opacity: 0.6 }} />
+                    {new Date(note.fullDate || note.created_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
                 <button
@@ -482,7 +483,17 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
       </Accordion>
 
       {/* ── Recent Rewards (Purchase History) ───────────────── */}
-      <Accordion title="Recent Rewards" icon="🎁" badge={user.recentPurchases?.length || 0} defaultOpen={false}>
+      <Accordion 
+        title="Recent Rewards" 
+        icon="🎁" 
+        badge={user.recentPurchases?.length || 0} 
+        defaultOpen={false}
+        extraHeader={user.recentPurchases?.length > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', background: 'var(--red-dim)', padding: '2px 8px', borderRadius: 6, marginLeft: 'auto' }}>
+             Spent: {user.recentPurchases.reduce((acc, curr) => acc + curr.price, 0)} ✦
+          </span>
+        )}
+      >
         <div style={{ padding: '0px 0px 8px 0px', display: 'flex', flexDirection: 'column' }}>
           {(!user.recentPurchases || user.recentPurchases.length === 0) ? (
             <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -521,11 +532,12 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
                     <IconComponent size={20} strokeWidth={2.2} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 2 }}>
                       {item.title}
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-muted)' }}>
-                      {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Clock size={10} style={{ opacity: 0.6 }} />
+                      {new Date(item.fullDate || item.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--red)' }}>

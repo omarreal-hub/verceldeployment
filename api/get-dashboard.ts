@@ -176,8 +176,9 @@ export async function POST(req: Request) {
             profileData.reviewNotes.items = notesRes.value.results.map((note: any) => ({
                 id: note.id,
                 title: note.properties.Name?.title?.[0]?.plain_text || note.properties.title?.title?.[0]?.plain_text || 'Untitled Note',
-                created_time: note.created_time
-            }));
+                created_time: note.created_time,
+                fullDate: note.last_edited_time
+            })).sort((a: any, b: any) => new Date(b.fullDate).getTime() - new Date(a.fullDate).getTime());
             if (profileData.reviewNotes.count === 0) profileData.reviewNotes.count = profileData.reviewNotes.items.length;
         }
 
@@ -238,8 +239,10 @@ export async function POST(req: Request) {
                 title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
                 name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
                 price: s.properties.Price?.number || 0, 
-                date: s.properties.Date?.date?.start || s.properties['Claimed Date']?.date?.start || todayStr
-            }));
+                date: s.properties.Date?.date?.start || s.properties['Claimed Date']?.date?.start || todayStr,
+                fullDate: s.last_edited_time
+            }))
+            .sort((a: any, b: any) => new Date(b.fullDate || b.date).getTime() - new Date(a.fullDate || a.date).getTime());
 
         const auraSpentToday = recentPurchases
             .filter(p => p.date === todayStr)

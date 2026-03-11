@@ -123,16 +123,34 @@ export async function generatePlanWithAI(
 
 export async function extractNoteWithAI(
     text: string,
-    modelId: string = 'google:gemini-2.0-flash'
+    modelId: string = 'smart',
+    primaryModelId: string = 'google:gemini-2.0-flash',
+    fallbackModelId: string = 'groq:llama3-8b-8192'
 ): Promise<ExtractedNote> {
-    const model = getModelById(modelId);
-    const { object } = await generateObject({
-        model,
-        schema: NoteExtractionSchema,
-        system: NOTE_EXTRACTOR_SYSTEM,
-        prompt: `User Input: ${text}`
-    });
-    return object;
+    const model = getModelById(modelId === 'fallback' ? fallbackModelId : (modelId === 'smart' || modelId === 'primary' ? primaryModelId : modelId));
+
+    try {
+        const { object } = await generateObject({
+            model,
+            schema: NoteExtractionSchema,
+            system: NOTE_EXTRACTOR_SYSTEM,
+            prompt: `User Input: ${text}`
+        });
+        return object;
+    } catch (error) {
+        if (modelId === 'smart' || modelId === 'primary') {
+            console.error(`Primary model failed for note, falling back...`, error);
+            const fallbackModel = getModelById(fallbackModelId);
+            const { object } = await generateObject({
+                model: fallbackModel,
+                schema: NoteExtractionSchema,
+                system: NOTE_EXTRACTOR_SYSTEM,
+                prompt: `User Input: ${text}`
+            });
+            return object;
+        }
+        throw error;
+    }
 }
 
 function getModelById(id: string): LanguageModel {

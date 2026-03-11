@@ -63,7 +63,12 @@ export default function FAB({ showSnackbar, onProjectGenerated }) {
             primaryModelId: primaryModel,
             fallbackModelId: fallbackModel
           }
-          : { text }; // Corrected from message: { text } to match updated api/add-note.ts
+          : { 
+            text,
+            modelId: selectedModel,
+            primaryModelId: primaryModel,
+            fallbackModelId: fallbackModel
+          };
 
         const res = await fetch(url, {
           method: 'POST',

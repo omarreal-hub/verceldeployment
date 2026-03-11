@@ -7,7 +7,10 @@ const RequestSchema = z.object({
     text: z.string().optional(),
     message: z.object({
         text: z.string()
-    }).optional()
+    }).optional(),
+    modelId: z.string().optional(),
+    primaryModelId: z.string().optional(),
+    fallbackModelId: z.string().optional()
 });
 
 export default async function (req: VercelRequest, res: VercelResponse) {
@@ -38,17 +41,22 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
         // Attempt AI Extraction with a timeout
         try {
-            console.log('[Add Note] Attempting AI extraction...');
-            const aiPromise = extractNoteWithAI(text);
+            console.log('[Add Note] Attempting AI extraction with model:', validated.modelId || 'smart');
+            const aiPromise = extractNoteWithAI(
+                text, 
+                validated.modelId, 
+                validated.primaryModelId, 
+                validated.fallbackModelId
+            );
             const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('AI Timeout')), 8000)
+                setTimeout(() => reject(new Error('AI Timeout')), 12000)
             );
 
             const result = await Promise.race([aiPromise, timeoutPromise]) as any;
             extracted = { ...extracted, ...result };
             console.log('[Add Note] AI extraction successful:', extracted.type, extracted.zone);
         } catch (aiError) {
-            console.warn('[Add Note] AI extraction failed or timed out. Falling back to basic note.');
+            console.warn('[Add Note] AI extraction failed or timed out:', aiError instanceof Error ? aiError.message : aiError);
             extracted.title = text.split('\n')[0].substring(0, 100);
         }
 

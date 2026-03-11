@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Check, X } from 'lucide-react';
 import './index.css';
 import Header from './components/Header';
@@ -11,6 +11,11 @@ import ProfileView from './views/ProfileView';
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'home');
   const [loading, setLoading] = useState(true);
+  const [pinnedProjectIds, setPinnedProjectIds] = useState(() => {
+    const saved = localStorage.getItem('pinnedProjects');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const lastActionTime = useRef(0);
   const [error, setError] = useState(null);
 
   // Notification Snackbar State
@@ -28,59 +33,80 @@ export default function App() {
       const res = await fetch('/api/get-dashboard', { method: 'POST' });
       if (!res.ok) throw new Error('Dashboard fetch failed');
       const data = await res.json();
-      console.log('Dashboard Data Received:', data);
+      
+      // SYNC LOCK: Notion API is slow to reflect writes. 
+      // If we just performed an action, ignore stale data updates for a few seconds.
+      const isLocked = Date.now() - lastActionTime.current < 20000;
 
-      const profile = data.profile || {};
-      const mappedUser = {
-        name: profile.name || 'Hero',
-        avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Hero')}&background=7c3aed&color=fff&size=256`,
-        level: profile.level?.num || 1,
-        levelPct: parseInt(profile.level?.bar) || 0,
-        auraTotal: profile.points?.total || 0,
-        auraToday: profile.points?.today || 0,
-        auraSpentToday: profile.points?.spent || 0,
-        recentPurchases: profile.recentPurchases || [],
-        joinDate: 'Oct 2023',
-        streak: 0,
-        longestStreak: 0,
-        overdueProjects: profile.overdue?.projects || 0,
-        overdueTasks: profile.overdue?.tasks || 0,
-        notesToReviewCount: profile.reviewNotes?.count || 0,
-        notesToReviewItems: profile.reviewNotes?.items || [],
-        yearProgress: parseInt(profile.time?.yearBar) || 0,
-        monthProgress: parseInt(profile.time?.monthBar) || 0
-      };
-      setUser(mappedUser);
-      setHabits(data.habits || []);
-
-      const rawTasks = data.tasks || [];
-      const mappedProjects = (data.projects || []).map(p => {
-        // Dynamically find any task that has a relation to this project's ID
-        const projectTasks = rawTasks.filter(t => {
-          for (const key in t.raw) {
-            if (t.raw[key]?.type === 'relation' && t.raw[key].relation.some(r => r.id === p.id)) return true;
-          }
-          return false;
-        }).map(t => ({
-          id: t.id,
-          title: t.title,
-          completed: t.raw.Status?.status?.name === 'Completed',
-          isOverdue: t.isOverdue // Mapping from backend processed flag
-        }));
-
-        return {
-          id: p.id,
-          title: p.title,
-          name: p.name,
-          type: p.type,
-          importance: p.importance,
-          aura: p.aura,
-          isOverdue: p.isOverdue, // Mapping from backend processed flag
-          tasks: projectTasks
-        };
+      // Cleanup pinned projects: remove IDs that don't exist in the fetched projects
+      const fetchedProjectIds = new Set(data.projects.map(p => p.id));
+      setPinnedProjectIds(curr => {
+        const cleaned = curr.filter(id => fetchedProjectIds.has(id));
+        if (cleaned.length !== curr.length) {
+          localStorage.setItem('pinnedProjects', JSON.stringify(cleaned));
+        }
+        return cleaned;
       });
 
-      setProjects(mappedProjects);
+      // Only update habits/projects if not locked (to prevent flicker)
+      if (!isLocked) {
+        const profile = data.profile || {};
+        setUser(u => ({
+          ...u,
+          name: profile.name || 'Hero',
+          avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || 'Hero')}&background=7c3aed&color=fff&size=256`,
+          level: profile.level?.num || 1,
+          levelPct: parseInt(profile.level?.bar) || 0,
+          auraTotal: profile.points?.total || 0,
+          auraToday: profile.points?.today || 0,
+          auraSpentToday: profile.points?.spent || 0,
+          recentPurchases: profile.recentPurchases || [],
+          joinDate: 'Oct 2023',
+          streak: 0,
+          longestStreak: 0,
+          overdueProjects: profile.overdue?.projects || 0,
+          overdueTasks: profile.overdue?.tasks || 0,
+          notesToReviewCount: profile.reviewNotes?.count || 0,
+          notesToReviewItems: profile.reviewNotes?.items || [],
+          yearProgress: parseInt(profile.time?.yearBar) || 0,
+          monthProgress: parseInt(profile.time?.monthBar) || 0
+        }));
+
+        setHabits(data.habits || []);
+
+        const rawTasks = data.tasks || [];
+        const mappedProjects = (data.projects || []).map(p => {
+          // ... (mapping logic continues)
+          const projectTasks = rawTasks.filter(t => {
+            for (const key in t.raw) {
+              if (t.raw[key]?.type === 'relation' && t.raw[key].relation.some(r => r.id === p.id)) return true;
+            }
+            return false;
+          }).map(t => ({
+            id: t.id,
+            title: t.title,
+            completed: t.raw.Status?.status?.name === 'Completed',
+            isOverdue: t.isOverdue // Mapping from backend processed flag
+          }));
+
+          return {
+            id: p.id,
+            title: p.title,
+            name: p.name,
+            type: p.type,
+            importance: p.importance,
+            aura: p.aura,
+            zones: p.zones || [],
+            isOverdue: p.isOverdue, // Mapping from backend processed flag
+            status: p.status,
+            completedDate: p.completedDate,
+            tasks: projectTasks
+          };
+        });
+
+        setProjects(mappedProjects);
+      }
+      
       setShopItems(data.shop || []);
 
     } catch (err) {
@@ -91,6 +117,18 @@ export default function App() {
     }
   };
 
+  const sortedProjects = useMemo(() => {
+    return [...projects].sort((a, b) => {
+      const pinA = pinnedProjectIds.indexOf(a.id);
+      const pinB = pinnedProjectIds.indexOf(b.id);
+      
+      if (pinA !== -1 && pinB !== -1) return pinA - pinB;
+      if (pinA !== -1) return -1;
+      if (pinB !== -1) return 1;
+      return 0;
+    });
+  }, [projects, pinnedProjectIds]);
+
   useEffect(() => {
     localStorage.setItem('activeTab', activeTab);
   }, [activeTab]);
@@ -99,7 +137,7 @@ export default function App() {
     fetchData();
     const interval = setInterval(() => {
       fetchData();
-    }, 10000); // Sync every 10 seconds
+    }, 30000); // Sync every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -110,10 +148,16 @@ export default function App() {
     }
 
     const wrappedExecution = async () => {
+      lastActionTime.current = Date.now();
       try {
         await executionFn();
-        fetchData(); // Silent refresh
-      } catch (e) { console.error('Silent execution failed', e); }
+        // Delay the silent refresh to give Notion time to sync
+        setTimeout(() => fetchData(), 12000);
+      } catch (e) { 
+        console.error('Silent execution failed', e);
+        lastActionTime.current = 0; // Clear lock on error
+        fetchData();
+      }
     };
 
     setSnackbar({ visible: true, message, type: 'undo', onUndo: rollbackFn, submitRef: wrappedExecution });
@@ -147,6 +191,7 @@ export default function App() {
   }, [snackbar]);
 
   const toggleHabit = (id) => {
+    lastActionTime.current = Date.now();
     // 1. Optimistic UI update
     setHabits(h => h.map(x => x.id === id ? { ...x, completed: !x.completed } : x));
 
@@ -168,9 +213,22 @@ export default function App() {
       setHabits(h => h.map(x => x.id === id ? { ...x, completed: !x.completed } : x));
     };
 
+    // 2. Optimistic User Update
+    if (isNowCompleted && habit.aura) {
+      setUser(u => {
+        const nextAura = u.auraTotal + habit.aura;
+        const nextToday = u.auraToday + habit.aura;
+        // Basic level formula: aura / 100
+        const nextLevel = Math.floor(nextAura / 100) + 1;
+        const nextLevelPct = nextAura % 100;
+        return { ...u, auraTotal: nextAura, auraToday: nextToday, level: nextLevel, levelPct: nextLevelPct };
+      });
+    }
+
     showSnackbar(isNowCompleted ? 'Habit marked as done' : 'Habit unchecked', executionFn, rollbackFn);
   };
   const toggleTask = (projectId, taskId) => {
+    lastActionTime.current = Date.now();
     // Find the task's current state
     let task = null;
     for (const p of projects) {
@@ -208,7 +266,81 @@ export default function App() {
       ));
     };
 
+    // 2. Optimistic User Update (Toggling tasks gives a small amount of Aura if your system does that, or at least we can update points)
+    // Let's assume tasks give 5 Aura if completed (or check if project has aura shared)
+    // Actually, usually projects give the Aura on completion. Let's stick to project completion for level update.
+
     showSnackbar(isNowCompleted ? 'Task marked as completed' : 'Task unchecked', executionFn, rollbackFn);
+  };
+  const completeProject = (projectId) => {
+    lastActionTime.current = Date.now();
+    // 1. Optimistic UI update
+    setProjects(ps => ps.map(p =>
+      p.id === projectId
+        ? { 
+            ...p, 
+            status: 'Completed', 
+            completedDate: new Date().toISOString().split('T')[0],
+            tasks: p.tasks.map(t => ({ ...t, completed: true }))
+          }
+        : p
+    ));
+
+    const executionFn = async () => {
+      const res = await fetch('/api/complete-project', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      if (!res.ok) throw new Error('Failed to complete project in backend');
+    };
+
+    const rollbackFn = () => {
+      // Revert optimistic update (simply re-fetching is safest but let's toggle back local state for immediate feedback)
+      setProjects(ps => ps.map(p =>
+        p.id === projectId
+          ? { ...p, status: 'In progress', completedDate: null, tasks: p.tasks.map(t => ({ ...t, completed: false })) }
+          : p
+      ));
+    };
+
+    // 2. Optimistic User Update
+    const project = projects.find(p => p.id === projectId);
+    if (project && project.aura) {
+      setUser(u => {
+        const nextAura = u.auraTotal + project.aura;
+        const nextToday = u.auraToday + project.aura;
+        const nextLevel = Math.floor(nextAura / 100) + 1;
+        const nextLevelPct = nextAura % 100;
+        return { ...u, auraTotal: nextAura, auraToday: nextToday, level: nextLevel, levelPct: nextLevelPct };
+      });
+    }
+
+    showSnackbar('Project marked as completed', executionFn, rollbackFn);
+  };
+
+  const togglePin = (projectId) => {
+    setPinnedProjectIds(prev => {
+      const isPinned = prev.includes(projectId);
+      const next = isPinned ? prev.filter(id => id !== projectId) : [...prev, projectId];
+      localStorage.setItem('pinnedProjects', JSON.stringify(next));
+      return next;
+    });
+    showToast('Project pinning updated');
+  };
+
+  const movePinnedProject = (projectId, direction) => {
+    setPinnedProjectIds(prev => {
+      const index = prev.indexOf(projectId);
+      if (index === -1) return prev;
+      const next = [...prev];
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= next.length) return prev;
+      
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      localStorage.setItem('pinnedProjects', JSON.stringify(next));
+      return next;
+    });
   };
 
   const handleArchiveNote = async (noteId) => {
@@ -218,6 +350,7 @@ export default function App() {
       notesToReviewCount: Math.max(0, u.notesToReviewCount - 1),
       notesToReviewItems: u.notesToReviewItems.filter(n => n.id !== noteId)
     }));
+    lastActionTime.current = Date.now();
     try {
       const res = await fetch('/api/archive-note', {
         method: 'POST',
@@ -234,6 +367,7 @@ export default function App() {
   };
 
   const handleBuyItem = (item) => {
+    lastActionTime.current = Date.now();
     // 1. Optimistic UI update
     setUser(u => {
       const newAuraTotal = Math.max(0, u.auraTotal - item.price);
@@ -256,12 +390,17 @@ export default function App() {
     });
 
     const executionFn = async () => {
+      lastActionTime.current = Date.now();
       const res = await fetch('/api/buy-item', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itemId: item.id })
       });
-      if (!res.ok) throw new Error('API failed');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to buy item');
+      }
+      setTimeout(() => fetchData(), 8000);
     };
 
     const rollbackFn = () => {
@@ -322,7 +461,19 @@ export default function App() {
 
   const renderView = () => {
     if (activeTab === 'home')
-      return <HomeView habits={habits} projects={projects} user={user} onToggleHabit={toggleHabit} onToggleTask={toggleTask} />;
+      return (
+        <HomeView
+          habits={habits}
+          projects={sortedProjects}
+          user={user}
+          onToggleHabit={toggleHabit}
+          onToggleTask={toggleTask}
+          onCompleteProject={completeProject}
+          pinnedProjectIds={pinnedProjectIds}
+          onTogglePin={togglePin}
+          onMovePin={movePinnedProject}
+        />
+      );
     if (activeTab === 'shop')
       return <ShopView user={user} shopItems={shopItems} onBuyItem={handleBuyItem} />;
     if (activeTab === 'profile')

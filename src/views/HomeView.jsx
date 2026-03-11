@@ -38,7 +38,7 @@ function HabitCard({ habit, onToggle }) {
       {/* Left Group: Icon Box & Name */}
       <div className="flex flex-row items-center gap-2.5 min-w-0">
         {/* Soft Glowing Icon Box */}
-        <div className={`w-[40px] h-[40px] rounded-[14px] flex shrink-0 items-center justify-center transition-all duration-300 border ${isDone
+        <div className={`habit-icon-box w-[40px] h-[40px] rounded-[14px] flex shrink-0 items-center justify-center transition-all duration-300 border ${isDone
           ? 'bg-white/[0.05] border-white/[0.1]'
           : `${habit.bg || 'bg-white/[0.08]'} ${habit.border || 'border-white/[0.12]'} ${habit.color || 'text-white'} shadow-[0_0_15px_-4px_rgba(0,0,0,0.3)]`
           }`} style={{ color: isDone ? 'var(--text-muted)' : undefined }}>
@@ -46,13 +46,13 @@ function HabitCard({ habit, onToggle }) {
         </div>
 
         {/* Habit Name */}
-        <span className={`text-[14px] font-medium tracking-tight transition-all duration-300 truncate`} style={{ color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
+        <span className={`habit-name text-[14px] font-medium tracking-tight transition-all duration-300 truncate`} style={{ color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
           {habit.title}
         </span>
       </div>
 
       {/* Luxurious Square Aura Badge */}
-      <div className={`shrink-0 ml-2 w-10 h-10 rounded-[14px] flex flex-col items-center justify-center transition-all duration-500 aura-card ${isDone
+      <div className={`habit-aura-badge shrink-0 ml-2 w-10 h-10 rounded-[14px] flex flex-col items-center justify-center transition-all duration-500 aura-card ${isDone
         ? 'opacity-30 grayscale border-white/5 bg-white/5'
         : ''
         }`}>
@@ -97,67 +97,173 @@ function CheckItem({ label, checked, onToggle }) {
 }
 
 // ─── Project Card ─────────────────────────────────────────────────
-function ProjectCard({ project, onToggleTask }) {
+function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTogglePin, onMovePin }) {
   const [tasksOpen, setTasksOpen] = useState(false);
+  const isPinned = pinnedProjectIds.includes(project.id);
+  const orderIndex = pinnedProjectIds.indexOf(project.id);
+  const isFirst = orderIndex === 0;
+  const isLast = orderIndex === pinnedProjectIds.length - 1;
+
   const style = TYPE_COLORS[project.type] || TYPE_COLORS['Routine'];
   const done = project.tasks.filter(t => t.completed).length;
-  const pct = project.tasks.length > 0 ? Math.round((done / project.tasks.length) * 100) : 0;
+  const total = project.tasks.length;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const isCompleted = project.status === 'Completed';
 
   return (
     <div style={{
       borderRadius: 16, background: 'var(--bg-elevated)',
       border: '1px solid var(--border-strong)', overflow: 'hidden',
+      opacity: isCompleted ? 0.7 : 1,
+      transition: 'all 0.3s ease'
     }}>
       <div style={{ padding: '14px 16px 12px' }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', marginBottom: 10, lineHeight: 1.4, display: 'flex', alignItems: 'center', gap: 8 }}>
-          {project.name}
-          {project.isOverdue && (
-            <span className="overdue-pill">
-              <Icons.AlertCircle size={10} strokeWidth={3} />
-              Overdue
+        <div className="proj-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 12 }}>
+          {/* Left: Title & Status */}
+          <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', lineHeight: 1.4, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            <span className="proj-title" style={{ textDecoration: isCompleted ? 'line-through' : 'none' }}>
+              {project.name}
             </span>
-          )}
+            {project.isOverdue && !isCompleted && (
+              <span className="overdue-pill">
+                <Icons.AlertCircle size={10} strokeWidth={3} />
+                Overdue
+              </span>
+            )}
+            {isCompleted && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6,
+                background: 'var(--green-dim)', color: 'var(--green)', border: '1px solid var(--green-dim)'
+              }}>
+                Done
+              </span>
+            )}
+          </div>
+
+          {/* Right: Metadata (Importance & Pinning) - Aligned to right */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+            {project.importance && project.importance !== 'Normal' && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
+                background: project.importance === 'Urgent' || project.importance === 'Important' ? 'rgba(239,68,68,0.1)' : 'var(--bg-card)',
+                color: project.importance === 'Urgent' || project.importance === 'Important' ? '#ef4444' : 'var(--text-secondary)',
+                border: `1px solid ${project.importance === 'Urgent' || project.importance === 'Important' ? 'rgba(239,68,68,0.2)' : 'var(--border)'}`,
+                display: 'flex', alignItems: 'center', gap: 4
+              }}>
+                <Icons.AlertTriangle size={10} />
+                {project.importance}
+              </span>
+            )}
+
+            {!isCompleted && (
+              <div style={{ display: 'flex', gap: 4 }}>
+                {isPinned && !isFirst && (
+                  <button onClick={() => onMovePin(project.id, 'up')} title="Move Up" style={{
+                    width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)', cursor: 'pointer'
+                  }}>
+                    <Icons.ChevronUp size={14} />
+                  </button>
+                )}
+                {isPinned && !isLast && (
+                  <button onClick={() => onMovePin(project.id, 'down')} title="Move Down" style={{
+                    width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)', cursor: 'pointer'
+                  }}>
+                    <Icons.ChevronDown size={14} />
+                  </button>
+                )}
+                <button
+                  onClick={() => onTogglePin(project.id)}
+                  className="group"
+                  title={isPinned ? "Unpin" : "Pin to top"}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    width: 28, height: 28, borderRadius: 8,
+                    background: isPinned ? 'var(--aura-dim)' : 'var(--bg-card)',
+                    color: isPinned ? 'var(--aura)' : 'var(--text-secondary)',
+                    border: `1px solid ${isPinned ? 'rgba(167,139,250,0.4)' : 'var(--border)'}`,
+                    cursor: 'pointer', outline: 'none', transition: 'all 0.2s',
+                    padding: 0
+                  }}
+                >
+                  <Icons.Pin size={13} fill={isPinned ? "var(--aura)" : "none"} strokeWidth={isPinned ? 2.5 : 2} />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-          <span style={{
-            fontSize: 10, fontWeight: 750, letterSpacing: '0.04em',
-            padding: '3px 8px', borderRadius: 7,
-            background: style.bg, color: style.color, border: `1px solid ${style.border}`,
-            textTransform: 'uppercase',
-          }}>{project.type}</span>
-          <span style={{
-            fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
-            background: 'var(--aura-dim)', color: 'var(--aura)',
-            border: '1px solid rgba(167,139,250,0.25)',
-          }}>✦ {project.aura} Aura</span>
-          <span style={{
-            fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 7,
-            background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)',
-            border: '1px solid var(--border)',
-          }}>{project.importance}</span>
-          <button
-            onClick={() => setTasksOpen(o => !o)}
-            style={{
-              marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5,
-              fontSize: 10.5, fontWeight: 700, padding: '4px 12px', borderRadius: 8,
-              background: done === project.tasks.length ? 'var(--green-dim)' : 'var(--bg-card)',
-              color: done === project.tasks.length ? 'var(--green)' : 'var(--text-secondary)',
-              border: `1px solid ${done === project.tasks.length ? 'var(--green-dim)' : 'var(--border)'}`,
-              cursor: 'pointer', outline: 'none', transition: 'all 0.2s ease',
-            }}
-          >
-            {done}/{project.tasks.length}
-            <ChevronDown size={11} style={{
-              transition: 'transform 0.25s ease',
-              transform: tasksOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-            }} />
-          </button>
+
+        {/* Row 3: Action Line */}
+        <div className="proj-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span style={{
+              fontSize: 10, fontWeight: 750, letterSpacing: '0.04em',
+              padding: '3px 8px', borderRadius: 7,
+              background: style.bg, color: style.color, border: `1px solid ${style.border}`,
+              textTransform: 'uppercase',
+            }}>{project.type}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
+              background: 'var(--aura-dim)', color: 'var(--aura)',
+              border: '1px solid rgba(167,139,250,0.25)',
+            }}>✦ {project.aura} Aura</span>
+
+            {project.zones && project.zones.length > 0 && project.zones.map(zone => (
+              <span key={zone} style={{
+                fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
+                background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)',
+                border: '1px solid var(--border-subtle)',
+                display: 'flex', alignItems: 'center', gap: 4
+              }}>
+                <Icons.LayoutGrid size={10} />
+                {zone}
+              </span>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {!isCompleted && (
+              <button
+                onClick={() => onComplete(project.id)}
+                className="group"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 8,
+                  background: 'var(--bg-card)', color: 'var(--text-primary)',
+                  border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Icons.CheckCircle2 size={12} className="group-hover:text-green-400 transition-colors" />
+                Done
+              </button>
+            )}
+
+            <button
+              onClick={() => setTasksOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                fontSize: 10.5, fontWeight: 700, padding: '4px 12px', borderRadius: 8,
+                background: done === total && total > 0 ? 'var(--green-dim)' : 'var(--bg-card)',
+                color: done === total && total > 0 ? 'var(--green)' : 'var(--text-secondary)',
+                border: `1px solid ${done === total && total > 0 ? 'var(--green-dim)' : 'var(--border)'}`,
+                cursor: 'pointer', outline: 'none', transition: 'all 0.2s ease',
+              }}
+            >
+              {done}/{total}
+              <ChevronDown size={11} style={{
+                transition: 'transform 0.25s ease',
+                transform: tasksOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }} />
+            </button>
+          </div>
         </div>
         {pct > 0 && (
           <div style={{ marginTop: 12, height: 4, borderRadius: 2, background: 'var(--border-subtle)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', borderRadius: 2, width: `${pct}%`,
-              background: 'linear-gradient(90deg, var(--accent), var(--aura))',
+              background: isCompleted ? 'var(--green)' : 'linear-gradient(90deg, var(--accent), var(--aura))',
               transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
             }} />
           </div>
@@ -260,9 +366,16 @@ function HighlightCard({ habits, onToggleHabit, user }) {
 }
 
 // ─── Home View ────────────────────────────────────────────────────
-export default function HomeView({ habits, projects, user, onToggleHabit, onToggleTask }) {
-  const tasksDone = projects.reduce((a, p) => a + p.tasks.filter(t => t.completed).length, 0);
-  const totalTasks = projects.reduce((a, p) => a + p.tasks.length, 0);
+export default function HomeView({ habits, projects, user, onToggleHabit, onToggleTask, onCompleteProject, pinnedProjectIds, onTogglePin, onMovePin }) {
+  const activeProjects = projects.filter(p => {
+    return p.status !== 'Completed';
+  });
+  
+  const completedToday = projects.filter(p => {
+    return p.status === 'Completed';
+  });
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 14 }}>
@@ -276,19 +389,51 @@ export default function HomeView({ habits, projects, user, onToggleHabit, onTogg
           fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
           textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap',
         }}>
-          TODAY — SUNDAY, MARCH 8
+          TODAY — {today.toUpperCase()}
         </span>
         <div style={{ height: 1, flex: 1, background: 'var(--border-subtle)' }} />
       </div>
 
       {/* 3. Active Projects */}
-      <Accordion title="Active Projects" icon="📁" badge={`${projects.length}`} defaultOpen={true}>
+      <Accordion title="Active Projects" icon="📁" badge={`${activeProjects.length}`} defaultOpen={true}>
         <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {projects.map(p => (
-            <ProjectCard key={p.id} project={p} onToggleTask={onToggleTask} />
+          {activeProjects.map(p => (
+            <ProjectCard 
+              key={p.id} 
+              project={p} 
+              onToggleTask={onToggleTask} 
+              onComplete={onCompleteProject} 
+              pinnedProjectIds={pinnedProjectIds}
+              onTogglePin={onTogglePin}
+              onMovePin={onMovePin}
+            />
           ))}
+          {activeProjects.length === 0 && (
+            <div className="py-4 text-center text-[13px] text-white/20 font-medium italic">
+              No active projects for now...
+            </div>
+          )}
         </div>
       </Accordion>
+
+      {/* 4. Completed Today */}
+      {completedToday.length > 0 && (
+        <Accordion title="Completed Today" icon="✅" badge={`${completedToday.length}`} defaultOpen={false}>
+          <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {completedToday.map(p => (
+              <ProjectCard 
+                key={p.id} 
+                project={p} 
+                onToggleTask={onToggleTask} 
+                onComplete={onCompleteProject} 
+                pinnedProjectIds={pinnedProjectIds}
+                onTogglePin={onTogglePin}
+                onMovePin={onMovePin}
+              />
+            ))}
+          </div>
+        </Accordion>
+      )}
     </div>
   );
 }

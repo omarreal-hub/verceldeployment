@@ -1,7 +1,7 @@
-import { notion, DATABASE_IDS, getZones } from './_lib/notion.js';
-import { extractNoteWithAI } from './_lib/ai.js';
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { notion, DATABASE_IDS, getZones } from './_lib/notion';
+import { extractNoteWithAI } from './_lib/ai';
 import { z } from 'zod';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const RequestSchema = z.object({
     text: z.string().optional(),
@@ -13,102 +13,72 @@ const RequestSchema = z.object({
     fallbackModelId: z.string().optional()
 });
 
-export default async function (req: VercelRequest, res: VercelResponse) {
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
-    console.log('[Add Note] Request received');
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method Not Allowed' });
 
     try {
-        const body = req.body;
-        const validated = RequestSchema.parse(body);
-        const text = validated.text || validated.message?.text;
+        const body = RequestSchema.parse(req.body);
+        const text = body.text || body.message?.text;
 
         if (!text) {
-            console.error('[Add Note] No text provided in request:', body);
-            return res.status(400).json({ error: 'Text is required' });
+            return res.status(400).json({ error: 'No text provided' });
         }
 
-        console.log('[Add Note] Processing text:', text.substring(0, 50) + '...');
-
-        let extracted = {
-            title: text.substring(0, 100),
-            type: 'Quick Note',
-            zone: 'Other',
-            summary: text,
-            url: ''
-        };
-
-        // Attempt AI Extraction with a timeout
-        try {
-            console.log('[Add Note] Attempting AI extraction with model:', validated.modelId || 'smart');
-            const aiPromise = extractNoteWithAI(
-                text, 
-                validated.modelId, 
-                validated.primaryModelId, 
-                validated.fallbackModelId
-            );
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('AI Timeout')), 12000)
-            );
-
-            const result = await Promise.race([aiPromise, timeoutPromise]) as any;
-            extracted = { ...extracted, ...result };
-            console.log('[Add Note] AI extraction successful:', extracted.type, extracted.zone);
-        } catch (aiError) {
-            console.warn('[Add Note] AI extraction failed or timed out:', aiError instanceof Error ? aiError.message : aiError);
-            extracted.title = text.split('\n')[0].substring(0, 100);
-        }
-
-        console.log('[Add Note] Fetching zones...');
-        const zones = await getZones().catch(err => {
-            console.error('[Add Note] Failed to fetch zones:', err);
-            return [];
-        });
-        
-        const matchedZone = zones.find(z => 
-            z.name.toLowerCase() === (extracted.zone || 'Other').toLowerCase()
+        // 1. AI Extraction (n8n Logic)
+        const extracted = await extractNoteWithAI(
+            text,
+            body.modelId,
+            body.primaryModelId,
+            body.fallbackModelId
         );
-        const zoneId = matchedZone?.id || null;
 
-        console.log('[Add Note] Creating Notion page...');
-        const properties: any = {
-            'Name': { title: [{ text: { content: extracted.title } }] },
-            'Status': { status: { name: 'Inbox' } },
-            'Type': { select: { name: extracted.type || 'Quick Note' } },
-            'Created Date': { date: { start: new Date().toISOString() } },
-            'Profile': { relation: [{ id: DATABASE_IDS.PROFILE || '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }] }
-        };
+        // 2. Zone Mapping (n8n Map)
+        const zones = await getZones();
+        const formattedZone = extracted.zone.charAt(0).toUpperCase() + extracted.zone.slice(1);
+        const matchedZone = zones.find(z => z.name === formattedZone) || 
+                          zones.find(z => z.name === 'Other');
 
-        if (zoneId) {
-            properties['Zones'] = { relation: [{ id: zoneId }] };
-        }
-
-        if (extracted.url) {
-            properties['URL'] = { url: extracted.url };
-        }
-
-        const page = await notion.pages.create({
+        // 3. Create Notion Page (n8n Mapping)
+        const response = await notion.pages.create({
             parent: { database_id: DATABASE_IDS.NOTES },
-            icon: { emoji: extracted.type === 'Resource' ? '🔗' : '📒' },
-            properties,
+            icon: {
+                type: 'emoji',
+                emoji: extracted.type === 'resource' ? '🔗' : '📒'
+            },
+            properties: {
+                'Name': {
+                    title: [{ text: { content: extracted.title } }]
+                },
+                'Type': {
+                    select: { name: extracted.type.charAt(0).toUpperCase() + extracted.type.slice(1) }
+                },
+                'Zones': {
+                    relation: matchedZone ? [{ id: matchedZone.id }] : []
+                },
+                'URL': {
+                    url: extracted.url || null
+                },
+                'Created Date': {
+                    date: { start: new Date().toISOString().split('T')[0] }
+                },
+                'Profile': {
+                    relation: [{ id: DATABASE_IDS.PROFILE }]
+                }
+            },
             children: [
                 {
                     object: 'block',
                     type: 'paragraph',
                     paragraph: {
-                        rich_text: [{ type: 'text', text: { content: extracted.summary || text } }]
+                        rich_text: [{ text: { content: extracted.summary } }]
                     }
                 }
             ]
         });
 
-        console.log('[Add Note] Success! Page ID:', page.id);
-        return res.status(200).json({ success: true, page_id: page.id, extracted });
-
-    } catch (error) {
-        console.error('[Add Note] Terminal error:', error);
-        const message = error instanceof Error ? error.message : 'Unknown error';
-        return res.status(500).json({ error: 'Internal server error', details: message });
+        return res.status(200).json({ success: true, pageId: response.id, extracted });
+    } catch (error: any) {
+        console.error('Error adding note:', error);
+        return res.status(500).json({ error: error.message });
     }
 }

@@ -3,32 +3,36 @@ import { google } from '@ai-sdk/google';
 import { groq } from '@ai-sdk/groq';
 import { z } from 'zod';
 
-// --- SCHEMAS ---
+// --- SCHEMAS (DIRECT FROM n8n) ---
 
-export const SmartNoteSchema = z.object({
-    title: z.string().describe("Short descriptive title of the note"),
-    content: z.string().describe("The actual text content or URL"),
-    created_at: z.string().describe("ISO 8601 YYYY-MM-DD")
-}).nullable();
+export const NoteExtractionSchema = z.object({
+    title: z.string().describe("A short, descriptive title for the note."),
+    type: z.enum(['capture', 'resource']).describe("Set to 'resource' if the text contains a URL, otherwise 'capture'."),
+    zone: z.enum(['Health', 'Education', 'Finances', 'Business', 'Personal', 'Other']).describe("The category or life area based on the content context."),
+    url: z.string().nullable().describe("Extract the URL if present, otherwise return null or empty string."),
+    summary: z.string().describe("A concise summary of the content or the cleaned text itself.")
+});
 
 export const ProjectSchema = z.object({
     name: z.string(),
-    importance: z.enum(['Important', 'Not Important']),
-    urgency: z.enum(['Urgent', 'Not Urgent']),
-    type: z.string().optional(),
-    aura_value: z.number().optional().describe("A difficulty/reward score from 1-100"),
-    start_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
-    final_due_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
-    zone_name: z.string(),
-    smart_note: SmartNoteSchema
+    importance: z.string().describe("important/not important"),
+    urgency: z.string().describe("urgent/not urgent"),
+    type: z.string().describe("Select: QUEST | Special Missions"),
+    aura_value: z.number(),
+    zone_id: z.enum(['Health', 'Education', 'Finances', 'Business', 'Personal', 'Other']),
+    start_date: z.string().describe("YYYY-MM-DD"),
+    final_due_date: z.string().describe("YYYY-MM-DD"),
+    smart_note: z.object({
+        title: z.string(),
+        content: z.string(),
+        created_at: z.string()
+    }).nullable()
 });
 
 export const TaskSchema = z.object({
     name: z.string(),
-    importance: z.enum(['Important', 'Not Important']).optional(),
-    urgency: z.enum(['Urgent', 'Not Urgent']).optional(),
-    do_date: z.string().optional().describe("ISO 8601 YYYY-MM-DD"),
-    status: z.string().optional()
+    do_date: z.string().describe("YYYY-MM-DD"),
+    status: z.string()
 });
 
 export const TaskGenerationSchema = z.array(z.object({
@@ -36,21 +40,20 @@ export const TaskGenerationSchema = z.array(z.object({
     tasks: z.array(TaskSchema)
 }));
 
-export const NoteExtractionSchema = z.object({
-    title: z.string(),
-    type: z.enum(['Capture', 'Resource']),
-    zone: z.string().describe("Categorize into: Health, Education, Finances, Business, Personal, or Other"),
-    url: z.string().optional(),
-    summary: z.string().describe("A concise summary of the note content")
-});
-
 export type GeneratedTaskPlan = z.infer<typeof TaskGenerationSchema>;
 export type ExtractedNote = z.infer<typeof NoteExtractionSchema>;
 
-// --- SYSTEM MESSAGES ---
+// --- SYSTEM MESSAGES (EXACT FROM n8n) ---
+
+const NOTE_EXTRACTOR_SYSTEM = `Analyze the following text from the user.
+Extract the information strictly adhering to the format instructions provided.
+
+CURRENT DATE: ${new Date().toISOString().split('T')[0]}`;
 
 const PROJECT_ARCHITECT_SYSTEM = `You are an expert Productivity Architect.
 Your goal is to parse user input into a STRUCTURED JSON LIST of projects and their associated tasks.
+
+CURRENT DATE: ${new Date().toISOString().split('T')[0]}
 
 ### INSTRUCTIONS:
 1. Analyze the input. If it contains multiple distinct goals, split them into separate projects.
@@ -58,34 +61,30 @@ Your goal is to parse user input into a STRUCTURED JSON LIST of projects and the
 3. Assign an "Aura Value" (1-100) based on difficulty.
 
 4. **TASK GENERATION LOGIC (DYNAMIC SCALING & OVERRIDE):**
-   - **EXPLICIT OVERRIDE:** If the user explicitly dictates the project structure or the exact number/names of tasks, you MUST follow their instructions BLINDLY.
-   - **Single/Simple Actions:** Create EXACTLY ONE task if the input is simple.
-   - **Complex Goals:** Break down into 2-10 sub-tasks only for large goals.
+   - **EXPLICIT OVERRIDE:** If the user explicitly dictates the project structure or the exact number/names of tasks (e.g., "Create 1 project with 2 tasks: A and B"), you MUST follow their instructions BLINDLY. Do not add, remove, or invent tasks.
+   - **Single/Simple Actions:** If the user input is a clear, simple action and provides no specific structure, create EXACTLY ONE task that directly represents this action. Do not overcomplicate.
+   - **Complex Goals:** ONLY if the input is a large goal without user-specified steps, break it down intelligently into actionable sub-tasks (2 to 10 max).
 
 5. **SMART NOTE EXTRACTION:**
-   - Identify context/URLs and create a smart_note object.
-   - **Date:** Set created_at to CURRENT DATE.
+   - Identify any reference materials, URLs, specific context, or "brain dump" details.
+   - If found, create a \`smart_note\` object inside the project.
+   - **Title:** Generate a short, descriptive title for the note.
+   - **Content:** Include the raw text, URL, or mixed content.
+   - **Date:** Set \`created_at\` to CURRENT DATE.
+   - If NO extra context is found, set \`smart_note\` to \`null\`.
 
-6. **CLASSIFICATION & SCHEDULING:**
-   - Importance: ONLY 'Important' or 'Not Important'.
-   - Urgency: ONLY 'Urgent' or 'Not Urgent'.
-   - Project Type: 'QUEST' or 'Special Missions'.
+6. **SCHEDULING LOGIC:**
+   - If the user says "Today", "Now", or "Tonight", you MUST schedule tasks for the CURRENT DATE.
+   - If the user specifies a date, use that date.
+   - ONLY if no date is specified, schedule starting from tomorrow.
+
+### CLASSIFICATION RULES (STRICT):
+1. Project Type MUST be either "QUEST" or "Special Missions".
+2. NEVER use "Task" as a project type.
 
 ### CRITICAL OUTPUT RULES:
-1. Output MUST be a raw JSON List [...] of objects.
-2. All dates must follow YYYY-MM-DD format.`;
-
-const NOTE_EXTRACTOR_SYSTEM = `Analyze the following text from the user.
-Extract metadata strictly following these rules:
-- title: Concise and clear.
-- type: 'Capture' or 'Resource' (Resource if it contains a URL).
-- zone: Categorize (Health, Education, Finances, Business, Personal, Other).
-- url: Extract the URL if present, otherwise null.
-- summary: A clear summary of the content.
-
-Current Date: ${new Date().toISOString().split('T')[0]}
-
-IMPORTANT: Use ONLY 'Important'/'Not Important' for importance and 'Urgent'/'Not Urgent' for urgency.`;
+1. Output MUST be a raw JSON List \`[...]\`.
+2. All dates must follow \`YYYY-MM-DD\` format.`;
 
 // --- FUNCTIONS ---
 

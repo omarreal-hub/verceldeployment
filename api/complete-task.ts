@@ -21,6 +21,13 @@ export async function POST(req: Request) {
         const page: any = await notion.pages.retrieve({ page_id });
         const currentStatus = page.properties.Status?.status?.name === 'Completed';
 
+        const today = new Intl.DateTimeFormat('en-CA', { 
+            timeZone: 'Africa/Cairo', 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit' 
+        }).format(new Date());
+
         await notion.pages.update({
             page_id,
             properties: {
@@ -28,6 +35,9 @@ export async function POST(req: Request) {
                     status: {
                         name: currentStatus ? 'In progress' : 'Completed'
                     }
+                },
+                'Completed Date': currentStatus ? { date: null } : { 
+                    date: { start: today } 
                 }
             }
         });

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
         // 1. Fetch Item Details
         const item = await notion.pages.retrieve({ page_id: itemId }) as any;
         const price = item.properties.Price?.number || 0;
-        const isClaimed = item.properties.Claimed?.checkbox || false;
+        const isClaimed = item.properties.Checkbox?.checkbox || false;
 
         if (isClaimed) {
             return Response.json({ error: 'Item already claimed' }, { status: 400, headers: corsHeaders });
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
         await notion.pages.update({
             page_id: itemId,
             properties: {
-                'Claimed': {
+                'Checkbox': {
                     checkbox: true
                 }
             }

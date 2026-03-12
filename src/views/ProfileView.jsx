@@ -428,39 +428,42 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
             </div>
           ) : (
             (user.notesToReviewItems || []).map(note => (
-              <div key={note.id}
-                onClick={() => setSelectedNoteId(note.id)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', gap: 14,
-                  cursor: 'pointer',
-                  transition: 'background 0.2s ease',
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {note.title}
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Clock size={10} style={{ opacity: 0.6 }} />
-                    {new Date(note.fullDate || note.created_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onArchiveNote(note.id);
-                  }}
+                <div key={note.id}
+                  onClick={() => setSelectedNoteId(note.id)}
                   style={{
-                    padding: '7px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
-                    background: 'var(--aura-dim)', color: 'var(--aura)',
-                    border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
-                    whiteSpace: 'nowrap'
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', gap: 14,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease',
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                  Archive
-                </button>
-              </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {note.title}
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Clock size={10} style={{ opacity: 0.6 }} />
+                      {new Date(note.fullDate || note.created_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onArchiveNote(note.id);
+                    }}
+                    style={{
+                      padding: '7px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                      background: 'var(--aura-dim)', color: 'var(--aura)',
+                      border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    Archive
+                  </button>
+                </div>
             ))
           )}
         </div>

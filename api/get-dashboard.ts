@@ -234,7 +234,7 @@ export async function POST(req: Request) {
         const allShopResults = shopRes.status === 'fulfilled' ? shopRes.value.results : [];
 
         const shop = allShopResults
-            .filter((s: any) => !s.properties.Claimed?.checkbox)
+            .filter((s: any) => !s.properties.Checkbox?.checkbox)
             .map((s: any) => ({
                 id: s.id,
                 title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
@@ -244,7 +244,7 @@ export async function POST(req: Request) {
             }));
 
         const recentPurchases = allShopResults
-            .filter((s: any) => s.properties.Claimed?.checkbox)
+            .filter((s: any) => s.properties.Checkbox?.checkbox)
             .map((s: any) => ({
                 id: s.id,
                 title: s.properties.Name?.title?.[0]?.plain_text || 'Item',

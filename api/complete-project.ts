@@ -103,7 +103,7 @@ export async function POST(req: Request) {
         console.error('[API ERROR completing project]', error);
         
         if (error instanceof z.ZodError) {
-            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, { status: 400, headers: corsHeaders });
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.issues }, { status: 400, headers: corsHeaders });
         }
 
         return Response.json({

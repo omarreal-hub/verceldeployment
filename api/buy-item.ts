@@ -55,6 +55,11 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('Buy Item Error:', error);
-        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+        
+        if (error instanceof z.ZodError) {
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.issues }, { status: 400, headers: corsHeaders });
+        }
+
+        return Response.json({ success: false, error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

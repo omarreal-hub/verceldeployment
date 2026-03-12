@@ -1,9 +1,4 @@
 import { notion } from './_lib/notion.js';
-import { z } from 'zod';
-
-const RequestSchema = z.object({
-    page_id: z.string().min(5),
-});
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,12 +12,17 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const body = await req.json();
-        const { page_id } = RequestSchema.parse(body);
+        const { page_id } = await req.json();
 
+        if (!page_id) {
+            return Response.json({ success: false, error: 'Missing page_id' }, { status: 400, headers: corsHeaders });
+        }
+
+        // Fetch page details for properties
         const page: any = await notion.pages.retrieve({ page_id });
         const props = page.properties;
 
+        // Extract title
         let title = '';
         if (props.Name?.title) {
             title = props.Name.title.map((t: any) => t.plain_text).join('');
@@ -30,6 +30,7 @@ export async function POST(req: Request) {
             title = props.title.title.map((t: any) => t.plain_text).join('');
         }
 
+        // Extract specific properties
         const url = props.URL?.url || '';
         const type = props.Type?.select?.name || props.Type?.multi_select?.[0]?.name || props.Type?.status?.name || '';
 
@@ -53,6 +54,7 @@ export async function POST(req: Request) {
             zones = props.Zones?.multi_select?.map((z: any) => z.name).join(', ') || '';
         }
 
+        // Fetch all blocks from the page
         const blocks = await notion.blocks.children.list({
             block_id: page_id,
         });
@@ -87,9 +89,6 @@ export async function POST(req: Request) {
 
     } catch (error: any) {
         console.error('Get Note Error:', error);
-        return Response.json({ success: false, error: error.message || String(error) }, {
-            status: 500,
-            headers: corsHeaders
-        });
+        return Response.json({ success: false, error: String(error) }, { status: 500, headers: corsHeaders });
     }
 }

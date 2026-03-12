@@ -40,7 +40,7 @@ export async function POST(req: Request) {
                 }
             }),
 
-            // 3. Projects (Active, Starting Today/Past, OR Completed Today)
+            // 3. Projects (Active, Starting on or before Today, OR Completed Today)
             notion.databases.query({
                 database_id: '207f2317-55ae-8135-abf8-ea6150021c30',
                 filter: {
@@ -162,8 +162,8 @@ export async function POST(req: Request) {
             // 5. Overdue counts
             const overdueProjStr = p['Overdue Projects']?.formula?.string || '';
             const overdueTaskStr = p['Overdue Tasks']?.formula?.string || '';
-            const projMatch = overdueProjStr.match(/(\d+)/);
-            const taskMatch = overdueTaskStr.match(/(\d+)/);
+            const projMatch = overdueProjStr.match(/PROJECTS\s*:\s*(\d+)/i) || overdueProjStr.match(/(\d+)/);
+            const taskMatch = overdueTaskStr.match(/TASKS\s*:\s*(\d+)/i) || overdueTaskStr.match(/(\d+)/);
             profileData.overdue.projects = projMatch ? parseInt(projMatch[1] || projMatch[0], 10) : 0;
             profileData.overdue.tasks = taskMatch ? parseInt(taskMatch[1] || taskMatch[0], 10) : 0;
 
@@ -175,11 +175,14 @@ export async function POST(req: Request) {
         if (notesRes.status === 'fulfilled') {
             profileData.reviewNotes.items = notesRes.value.results.map((note: any) => ({
                 id: note.id,
-                title: note.properties.Name?.title?.[0]?.plain_text || note.properties.title?.title?.[0]?.plain_text || 'Untitled Note',
+                title: note.properties.Name?.title?.[0]?.plain_text ||
+                    note.properties.title?.title?.[0]?.plain_text || 'Untitled Note',
                 created_time: note.created_time,
                 fullDate: note.last_edited_time
             })).sort((a: any, b: any) => new Date(b.fullDate).getTime() - new Date(a.fullDate).getTime());
-            if (profileData.reviewNotes.count === 0) profileData.reviewNotes.count = profileData.reviewNotes.items.length;
+            if (profileData.reviewNotes.count === 0) {
+                profileData.reviewNotes.count = profileData.reviewNotes.items.length;
+            }
         }
 
         // Build Zones Map
@@ -190,20 +193,28 @@ export async function POST(req: Request) {
             });
         }
 
+        // Map Habit Trackers
         const habits = habitsRes.status === 'fulfilled' ? habitsRes.value.results.map((h: any) => ({
-            id: h.id, 
+            id: h.id,
             title: h.properties.Name?.title?.[0]?.plain_text || 'Untitled Habit',
             completed: h.properties.Done?.checkbox || false,
             aura: h.properties['Aura value']?.number || h.properties.Aura?.formula?.number || 0
         })) : [];
 
+        // Map Standard Entities (Projects/Tasks)
         const mapStandard = (res: any) => res.status === 'fulfilled' ? res.value.results.map((r: any) => {
             const props = r.properties;
-            const title = props['Project name']?.title?.[0]?.plain_text || props['Task Name']?.title?.[0]?.plain_text || props['Name']?.title?.[0]?.plain_text || 'Untitled';
-            const isOverdue = props['Overdue Projects']?.formula?.number === 1 || props['Overdue Tasks']?.formula?.number === 1;
+            const title = props['Project name']?.title?.[0]?.plain_text ||
+                props['Task Name']?.title?.[0]?.plain_text ||
+                props['Name']?.title?.[0]?.plain_text || 'Untitled';
+
+            const isOverdue =
+                props['Overdue Projects']?.formula?.number === 1 ||
+                props['Overdue Tasks']?.formula?.number === 1;
+
             return {
-                id: r.id, 
-                title, 
+                id: r.id,
+                title,
                 name: title,
                 type: props.Type?.select?.name || 'Routine',
                 importance: props.Importance?.select?.name || props.Urgency?.select?.name || 'Normal',
@@ -219,26 +230,25 @@ export async function POST(req: Request) {
         const projects = mapStandard(projectsRes);
         const tasks = mapStandard(tasksRes);
 
+        // Map Shop Items
         const allShopResults = shopRes.status === 'fulfilled' ? shopRes.value.results : [];
+
         const shop = allShopResults
             .filter((s: any) => !s.properties.Claimed?.checkbox)
-            .map((s: any) => {
-                return {
-                    id: s.id, 
-                    title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
-                    name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
-                    price: s.properties.Price?.number || 0, 
-                    claimed: false
-                };
-            });
+            .map((s: any) => ({
+                id: s.id,
+                title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
+                name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
+                price: s.properties.Price?.number || 0,
+                claimed: false
+            }));
 
         const recentPurchases = allShopResults
             .filter((s: any) => s.properties.Claimed?.checkbox)
             .map((s: any) => ({
-                id: s.id, 
+                id: s.id,
                 title: s.properties.Name?.title?.[0]?.plain_text || 'Item',
-                name: s.properties.Name?.title?.[0]?.plain_text || 'Item',
-                price: s.properties.Price?.number || 0, 
+                price: s.properties.Price?.number || 0,
                 date: s.properties.Date?.date?.start || s.properties['Claimed Date']?.date?.start || todayStr,
                 fullDate: s.last_edited_time
             }))
@@ -251,17 +261,23 @@ export async function POST(req: Request) {
         const auraEarnedToday = Math.max(0, profileData.points.today + auraSpentToday);
 
         return Response.json({
-            profile: { 
-                ...profileData, 
-                points: { ...profileData.points, today: auraEarnedToday, spent: auraSpentToday }, 
-                recentPurchases 
+            profile: {
+                ...profileData,
+                points: {
+                    ...profileData.points,
+                    today: auraEarnedToday,
+                    spent: auraSpentToday
+                },
+                recentPurchases
             },
-            habits, 
-            projects, 
-            tasks, 
+            habits,
+            projects,
+            tasks,
             shop
         }, { headers: corsHeaders });
+
     } catch (error: any) {
+        console.error('Dashboard Error:', error);
         return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

@@ -18,15 +18,20 @@ export async function POST(req: Request) {
             return Response.json({ error: 'Missing noteId' }, { status: 400, headers: corsHeaders });
         }
 
+        // Update the 'Archive' property to true
         await notion.pages.update({
             page_id: noteId,
             properties: {
-                'Archive': { checkbox: true }
+                Archive: { checkbox: true }
             }
         });
 
-        return Response.json({ success: true }, { headers: corsHeaders });
-    } catch (error: any) {
-        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+        return Response.json({ success: true, archived: true }, { headers: corsHeaders });
+    } catch (error) {
+        console.error('Archive Note Error:', error);
+        return Response.json(
+            { error: 'Failed to archive note', details: String(error) },
+            { status: 500, headers: corsHeaders }
+        );
     }
 }

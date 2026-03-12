@@ -49,18 +49,20 @@ export async function GET() {
 
         if (models.length === 0) {
             models.push(
-                { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'Google' },
-                { id: 'groq:llama3-8b-8192', name: 'LLaMA3 8B', provider: 'Groq' }
+                { id: 'google:gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp', provider: 'Google' },
+                { id: 'google:gemini-1.5-flash', name: 'Gemini 1.5 Flash', provider: 'Google' },
+                { id: 'groq:llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B', provider: 'Groq' }
             );
         }
 
         return Response.json({ models }, { headers: corsHeaders });
-    } catch (error: any) {
+    } catch (error) {
         return Response.json({
-            error: error.message || 'Failed to fetch models', models: [
-                { id: 'google:gemini-2.0-flash', name: 'Gemini 2.0 Flash', provider: 'Google' },
-                { id: 'groq:llama3-8b-8192', name: 'LLaMA3 8B', provider: 'Groq' }
+            error: 'Failed to fetch models', 
+            models: [
+                { id: 'google:gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp', provider: 'Google' },
+                { id: 'groq:llama-3.3-70b-versatile', name: 'LLaMA 3.3 70B', provider: 'Groq' }
             ]
-        }, { status: 500, headers: corsHeaders });
+        }, { headers: corsHeaders });
     }
 }

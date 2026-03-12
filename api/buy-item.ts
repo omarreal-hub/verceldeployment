@@ -1,10 +1,15 @@
 import { notion } from './_lib/notion.js';
+import { z } from 'zod';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+const BuySchema = z.object({
+    itemId: z.string().min(1)
+});
 
 export async function OPTIONS() {
     return new Response(null, { headers: corsHeaders });
@@ -12,51 +17,44 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const { itemId } = await req.json();
+        const body = await req.json();
+        const { itemId } = BuySchema.parse(body);
 
-        if (!itemId) {
-            return Response.json({ error: 'Missing itemId' }, { status: 400, headers: corsHeaders });
-        }
-
-        // 1. Fetch Item Price
+        // 1. Fetch Item Details
         const item = await notion.pages.retrieve({ page_id: itemId }) as any;
         const price = item.properties.Price?.number || 0;
-        const isClaimed = item.properties.Claimed?.checkbox || item.properties.Checkbox?.checkbox || false;
+        const isClaimed = item.properties.Claimed?.checkbox || false;
 
         if (isClaimed) {
             return Response.json({ error: 'Item already claimed' }, { status: 400, headers: corsHeaders });
         }
 
-        // 2. Fetch User Aura (Profile ID)
+        // 2. Fetch User Aura
+        // Profile ID is hardcoded for now as per local implementation
         const profile = await notion.pages.retrieve({ page_id: '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }) as any;
         const auraText = profile.properties['Aura']?.formula?.string || '';
         const totalMatch = auraText.match(/TOTAL\s*:\s*(\d+)/i);
         const userAura = totalMatch ? parseInt(totalMatch[1], 10) : 0;
 
-        // 3. Verify enough Aura
+        // 3. Balance Guard
         if (userAura < price) {
             return Response.json({ error: 'Not enough Aura' }, { status: 400, headers: corsHeaders });
         }
 
-        // 4. Mark as Claimed & Set Date
-        const today = new Intl.DateTimeFormat('en-CA', { 
-            timeZone: 'Africa/Cairo', 
-            year: 'numeric', 
-            month: '2-digit', 
-            day: '2-digit' 
-        }).format(new Date());
-
+        // 4. Mark as Claimed (No Date property as requested)
         await notion.pages.update({
             page_id: itemId,
             properties: {
-                // Support both property names found in different DB versions
-                'Claimed': { checkbox: true },
-                'Date': { date: { start: today } }
+                'Claimed': {
+                    checkbox: true
+                }
             }
         });
 
         return Response.json({ success: true, remainingAura: userAura - price }, { headers: corsHeaders });
+
     } catch (error: any) {
+        console.error('Buy Item Error:', error);
         return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
 }

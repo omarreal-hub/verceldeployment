@@ -1,5 +1,5 @@
 import * as Icons from 'lucide-react';
-import { Sparkles, ShoppingCart } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 // ─── Shop Item Card (Inspired by HabitCard) ──────────────────────────
 function ShopItemCard({ item, balance, onBuy }) {
@@ -35,7 +35,7 @@ function ShopItemCard({ item, balance, onBuy }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {/* Soft Glowing Icon Box (Matches HabitCard) */}
+        {/* Soft Glowing Icon Box */}
         <div style={{
           width: 42, height: 42, borderRadius: 14,
           background: 'rgba(255,255,255,0.06)',
@@ -66,7 +66,7 @@ function ShopItemCard({ item, balance, onBuy }) {
           )}
         </div>
 
-        {/* Price Badge (Matches HabitCard Aura Badge style) */}
+        {/* Price Badge */}
         <div style={{
           width: 42, height: 42, borderRadius: 14,
           background: 'var(--bg-elevated)',
@@ -84,7 +84,7 @@ function ShopItemCard({ item, balance, onBuy }) {
         </div>
       </div>
 
-      {/* Buy Button Container */}
+      {/* Buy Button */}
       <button
         onClick={() => onBuy(item)}
         disabled={!isAffordable}
@@ -148,9 +148,9 @@ export default function ShopView({ user, shopItems = [], onBuyItem }) {
         </div>
       </div>
 
-      {/* Grid Store items */}
+      {/* Catalog */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, px: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{
             fontSize: 11, fontWeight: 600, letterSpacing: '0.05em',
             textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap',
@@ -165,7 +165,7 @@ export default function ShopView({ user, shopItems = [], onBuyItem }) {
             No rewards available right now.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {shopItems.map(item => (
               <ShopItemCard
                 key={item.id}
@@ -178,7 +178,7 @@ export default function ShopView({ user, shopItems = [], onBuyItem }) {
         )}
       </div>
 
-      {/* Footer note */}
+      {/* Footer */}
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '10px 20px', lineHeight: 1.6, opacity: 0.7 }}>
         Spending Aura on temptations is part of the system.
         <br />Stay balanced. You've earned it. 🙏

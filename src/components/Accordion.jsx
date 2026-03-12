@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export default function Accordion({ title, icon, defaultOpen = false, children, badge }) {
+export default function Accordion({ title, icon, defaultOpen = false, children, badge, extraHeader }) {
   const [open, setOpen] = useState(defaultOpen);
-// No ref or JS height measurement needed for grid transition
 
   return (
     <div style={{
@@ -14,8 +13,7 @@ export default function Accordion({ title, icon, defaultOpen = false, children, 
       transition: 'border-color 0.2s ease',
     }}>
       {/* Header */}
-      <button
-        onClick={() => setOpen(o => !o)}
+      <div
         style={{
           width: '100%',
           display: 'flex',
@@ -23,13 +21,25 @@ export default function Accordion({ title, icon, defaultOpen = false, children, 
           justifyContent: 'space-between',
           padding: '16px 18px',
           background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
           color: 'var(--text-primary)',
-          outline: 'none',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'inherit',
+            padding: 0,
+            textAlign: 'left',
+            outline: 'none'
+          }}
+        >
           {icon && <span style={{ fontSize: '18px', lineHeight: 1 }}>{icon}</span>}
           <span style={{ fontWeight: 600, fontSize: '14px', letterSpacing: '0.01em' }}>
             {title}
@@ -45,16 +55,28 @@ export default function Accordion({ title, icon, defaultOpen = false, children, 
               border: '1px solid var(--border)',
             }}>{badge}</span>
           )}
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {extraHeader}
+          <button 
+            onClick={() => setOpen(o => !o)}
+            style={{ 
+              background: 'transparent', border: 'none', cursor: 'pointer', outline: 'none', padding: 4,
+              display: 'flex', alignItems: 'center'
+            }}
+          >
+            <ChevronDown
+              size={16}
+              style={{
+                color: 'var(--text-muted)',
+                transition: 'transform 0.3s ease',
+                transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}
+            />
+          </button>
         </div>
-        <ChevronDown
-          size={16}
-          style={{
-            color: 'var(--text-muted)',
-            transition: 'transform 0.3s ease',
-            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-          }}
-        />
-      </button>
+      </div>
 
       {/* Collapsible Content */}
       <div

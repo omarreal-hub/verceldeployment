@@ -82,7 +82,7 @@ function NoteModal({ noteId, onClose, onArchive }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'var(--text-secondary)', cursor: 'pointer',
             transition: 'all 0.2s ease', marginLeft: 12
-          }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}>
+          }}>
             <X size={20} />
           </button>
         </div>
@@ -135,8 +135,7 @@ function NoteModal({ noteId, onClose, onArchive }) {
                         borderRadius: 10, background: 'rgba(139, 92, 246, 0.15)',
                         color: 'var(--aura)', textDecoration: 'none', fontSize: 12, fontWeight: 700,
                         border: '1px solid rgba(139, 92, 246, 0.2)', transition: 'all 0.2s ease'
-                      }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.25)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(139, 92, 246, 0.15)'}>
+                      }}>
                         <Clock size={12} />
                         Source
                       </a>
@@ -154,7 +153,7 @@ function NoteModal({ noteId, onClose, onArchive }) {
                 )}
               </div>
 
-              {/* Note Body with explicit RTL / Right Alignment */}
+              {/* Note Body */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 24px' }}>
                 {content.length === 0 ? (
                   <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13, padding: 20 }}>Empty note.</div>
@@ -219,8 +218,6 @@ function NoteModal({ noteId, onClose, onArchive }) {
               border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
               boxShadow: '0 4px 15px rgba(139, 92, 246, 0.3)', transition: 'transform 0.2s ease'
             }}
-            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
-            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
           >
             <Archive size={18} />
             Archive Note
@@ -306,19 +303,9 @@ function TimeCard({ label, pct, color }) {
   );
 }
 
-// ─── SVG Donut ring (used inside Identity Card) ───────────────────
+// ─── Profile View ─────────────────────────────────────────────────
 export default function ProfileView({ habits, projects, stats, user, onArchiveNote }) {
-  const profileStats = {
-    aura: user.auraTotal || 0,
-    overdue: projects.reduce((a, p) => a + p.tasks.filter(t => t.isOverdue && !t.completed).length, 0),
-    rank: user.level || 1,
-    joinDate: user.joinDate || 'Oct 2023',
-    streak: user.streak || 0,
-    longestStreak: user.longestStreak || 0
-  };
-
   const [selectedNoteId, setSelectedNoteId] = useState(null);
-  const [hoveredNote, setHoveredNote] = useState(null);
 
   const { habitsDone, totalHabits, tasksDone, totalTasks, projectsDone, totalProjects } = stats;
 
@@ -363,7 +350,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
               </span>
             </div>
 
-            {/* Extremely compact inline Aura stats */}
+            {/* Inline Aura stats */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
               <span style={{ fontSize: 12, fontWeight: 700 }}>
                 Total: <span style={{ color: 'var(--aura)' }}>{user.auraTotal} ✦</span>
@@ -380,7 +367,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
           </div>
         </div>
 
-        {/* 3 Stat rings — beautifully integrated */}
+        {/* 3 Stat rings */}
         <div style={{
           display: 'flex', gap: 12,
           paddingTop: 18,
@@ -392,7 +379,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
         </div>
       </div>
 
-      {/* ── Overdue Alerts (List format) ──────────── */}
+      {/* ── Overdue Alerts ──────────── */}
       <div style={{ padding: '2px 0 6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingLeft: 4 }}>
           <span style={{ fontSize: 15, lineHeight: 1 }}>⚠️</span>
@@ -449,8 +436,6 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
                   cursor: 'pointer',
                   transition: 'background 0.2s ease',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -470,7 +455,6 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
                     padding: '7px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
                     background: 'var(--aura-dim)', color: 'var(--aura)',
                     border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
-                    transition: 'all 0.2s ease',
                     whiteSpace: 'nowrap'
                   }}
                 >
@@ -482,7 +466,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
         </div>
       </Accordion>
 
-      {/* ── Recent Rewards (Purchase History) ───────────────── */}
+      {/* ── Recent Rewards ───────────────── */}
       <Accordion 
         title="Recent Rewards" 
         icon="🎁" 
@@ -562,7 +546,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
         />
       )}
 
-      {/* ── Time Progress — at the bottom, collapsed by default ─ */}
+      {/* ── Time Progress ─ */}
       <Accordion title="Time Progress" icon="📅" defaultOpen={false}>
         <div style={{ display: 'flex', gap: 10, padding: '14px' }}>
           <TimeCard label="Year 2026" pct={user.yearProgress} color="var(--blue)" />

@@ -1,7 +1,6 @@
 import { extractNoteWithAI } from './_lib/ai.js';
 import { notion, DATABASE_IDS } from './_lib/notion.js';
 import { ZONE_MAP, PROFILE_ID, ICONS } from './_lib/constants.js';
-import { z } from 'zod';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -17,15 +16,21 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const text = body.text || body.message?.text;
-        const modelId = body.modelId || 'google:gemini-2.5-flash';
+        const modelId = body.modelId || 'google:gemini-2.0-flash-exp';
 
         if (!text) {
             return Response.json({ success: false, error: 'No text provided' }, { status: 400, headers: corsHeaders });
         }
 
+        console.log(`[API] Extracting note from: "${text.substring(0, 50)}..."`);
+
+        // 1. AI Extraction
         const note = await extractNoteWithAI(text, modelId);
+
+        // 2. Map Zone
         const matchedZoneId = ZONE_MAP[note.zone as keyof typeof ZONE_MAP] || ZONE_MAP["Other"];
 
+        // 3. Create Notion Page
         const response = await notion.pages.create({
             parent: { database_id: DATABASE_IDS.NOTES },
             icon: { emoji: ICONS.NOTE as any },
@@ -55,6 +60,7 @@ export async function POST(req: Request) {
         }, { headers: corsHeaders });
 
     } catch (error: any) {
+        console.error('[API ERROR]', error);
         return Response.json({
             success: false,
             error: error.message || 'Internal Server Error'

@@ -38,7 +38,7 @@ function HabitCard({ habit, onToggle }) {
       {/* Left Group: Icon Box & Name */}
       <div className="flex flex-row items-center gap-2.5 min-w-0">
         {/* Soft Glowing Icon Box */}
-        <div className={`habit-icon-box w-[40px] h-[40px] rounded-[14px] flex shrink-0 items-center justify-center transition-all duration-300 border ${isDone
+        <div className={`w-[40px] h-[40px] rounded-[14px] flex shrink-0 items-center justify-center transition-all duration-300 border ${isDone
           ? 'bg-white/[0.05] border-white/[0.1]'
           : `${habit.bg || 'bg-white/[0.08]'} ${habit.border || 'border-white/[0.12]'} ${habit.color || 'text-white'} shadow-[0_0_15px_-4px_rgba(0,0,0,0.3)]`
           }`} style={{ color: isDone ? 'var(--text-muted)' : undefined }}>
@@ -46,13 +46,13 @@ function HabitCard({ habit, onToggle }) {
         </div>
 
         {/* Habit Name */}
-        <span className={`habit-name text-[14px] font-medium tracking-tight transition-all duration-300 truncate`} style={{ color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
+        <span className={`text-[14px] font-medium tracking-tight transition-all duration-300 truncate`} style={{ color: isDone ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: isDone ? 'line-through' : 'none' }}>
           {habit.title}
         </span>
       </div>
 
       {/* Luxurious Square Aura Badge */}
-      <div className={`habit-aura-badge shrink-0 ml-2 w-10 h-10 rounded-[14px] flex flex-col items-center justify-center transition-all duration-500 aura-card ${isDone
+      <div className={`shrink-0 ml-2 w-10 h-10 rounded-[14px] flex flex-col items-center justify-center transition-all duration-500 aura-card ${isDone
         ? 'opacity-30 grayscale border-white/5 bg-white/5'
         : ''
         }`}>
@@ -118,10 +118,10 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
       transition: 'all 0.3s ease'
     }}>
       <div style={{ padding: '14px 16px 12px' }}>
-        <div className="proj-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, gap: 12 }}>
           {/* Left: Title & Status */}
           <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text-primary)', lineHeight: 1.4, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-            <span className="proj-title" style={{ textDecoration: isCompleted ? 'line-through' : 'none' }}>
+            <span style={{ textDecoration: isCompleted ? 'line-through' : 'none' }}>
               {project.name}
             </span>
             {project.isOverdue && !isCompleted && (
@@ -141,7 +141,7 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
           </div>
 
           {/* Right: Metadata (Importance & Pinning) - Aligned to right */}
-          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
             {project.importance && project.importance !== 'Normal' && (
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
@@ -151,14 +151,14 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
                 display: 'flex', alignItems: 'center', gap: 4
               }}>
                 <Icons.AlertTriangle size={10} />
-                <span className="hide-on-mobile">{project.importance}</span>
+                {project.importance}
               </span>
             )}
 
             {!isCompleted && (
               <div style={{ display: 'flex', gap: 4 }}>
                 {isPinned && !isFirst && (
-                  <button onClick={(e) => { e.stopPropagation(); onMovePin(project.id, 'up'); }} title="Move Up" style={{
+                  <button onClick={() => onMovePin(project.id, 'up')} title="Move Up" style={{
                     width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)', cursor: 'pointer'
                   }}>
@@ -166,7 +166,7 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
                   </button>
                 )}
                 {isPinned && !isLast && (
-                  <button onClick={(e) => { e.stopPropagation(); onMovePin(project.id, 'down'); }} title="Move Down" style={{
+                  <button onClick={() => onMovePin(project.id, 'down')} title="Move Down" style={{
                     width: 24, height: 24, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
                     background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)', cursor: 'pointer'
                   }}>
@@ -174,7 +174,7 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
                   </button>
                 )}
                 <button
-                  onClick={(e) => { e.stopPropagation(); onTogglePin(project.id); }}
+                  onClick={() => onTogglePin(project.id)}
                   className="group"
                   title={isPinned ? "Unpin" : "Pin to top"}
                   style={{
@@ -194,65 +194,57 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
           </div>
         </div>
 
-        {/* Row 2: Action Line (Shortened for Mobile) */}
-        <div className="proj-meta" style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 6, alignItems: 'center', minWidth: 0 }}>
-            {/* Shortened Type Label */}
+        {/* Row 3: Action Line */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <span style={{
               fontSize: 10, fontWeight: 750, letterSpacing: '0.04em',
               padding: '3px 8px', borderRadius: 7,
               background: style.bg, color: style.color, border: `1px solid ${style.border}`,
-              textTransform: 'uppercase', whiteSpace: 'nowrap'
+              textTransform: 'uppercase',
             }}>
               <span className="hide-on-mobile">{project.type}</span>
-              <span className="show-on-mobile">
-                {project.type === 'QUEST' ? 'Q' : project.type === 'Special Mission' ? 'M' : project.type.substring(0, 1)}
-              </span>
+              <span className="show-on-mobile">{project.type === 'QUEST' ? 'Q' : project.type === 'Special Mission' ? 'M' : project.type[0]}</span>
             </span>
-
-            {/* Aura Tag - Icon only on mobile */}
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
               background: 'var(--aura-dim)', color: 'var(--aura)',
               border: '1px solid rgba(167,139,250,0.25)',
-              display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap'
-            }}>
-              ✦ {project.aura} <span className="hide-on-mobile">Aura</span>
-            </span>
+            }}>✦ {project.aura} <span className="hide-on-mobile">Aura</span></span>
 
-            {project.zones && project.zones.length > 0 && (
-              <span style={{
+            {project.zones && project.zones.length > 0 && project.zones.map(zone => (
+              <span key={zone} style={{
                 fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 7,
                 background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)',
                 border: '1px solid var(--border-subtle)',
-                display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap'
+                display: 'flex', alignItems: 'center', gap: 4
               }}>
                 <Icons.LayoutGrid size={10} />
-                {project.zones[0]}
+                {zone}
               </span>
-            )}
+            ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, shrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {!isCompleted && (
               <button
-                onClick={(e) => { e.stopPropagation(); onComplete(project.id); }}
+                onClick={() => onComplete(project.id)}
                 className="group"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 4,
                   fontSize: 10.5, fontWeight: 700, padding: '4px 10px', borderRadius: 8,
                   background: 'var(--bg-card)', color: 'var(--text-primary)',
                   border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
-                  transition: 'all 0.2s', whiteSpace: 'nowrap'
+                  transition: 'all 0.2s'
                 }}
               >
                 <Icons.CheckCircle2 size={12} className="group-hover:text-green-400 transition-colors" />
-                <span className="hide-on-mobile">Done</span>
+                Done
               </button>
             )}
 
             <button
-              onClick={(e) => { e.stopPropagation(); setTasksOpen(o => !o); }}
+              onClick={() => setTasksOpen(o => !o)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 fontSize: 10.5, fontWeight: 700, padding: '4px 12px', borderRadius: 8,

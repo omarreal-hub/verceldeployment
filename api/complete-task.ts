@@ -15,31 +15,26 @@ export async function POST(req: Request) {
         const { page_id } = await req.json();
 
         if (!page_id) {
-            return Response.json({ error: 'Missing page_id' }, { status: 400, headers: corsHeaders });
+            return Response.json({ success: false, error: 'Missing page_id' }, { status: 400, headers: corsHeaders });
         }
 
         const page: any = await notion.pages.retrieve({ page_id });
-        const currentStatus = page.properties.Status?.status?.name;
-        const isCompleted = currentStatus === 'Completed';
-        const newStatus = isCompleted ? 'In progress' : 'Completed';
-        
-        const today = new Intl.DateTimeFormat('en-CA', { 
-            timeZone: 'Africa/Cairo', 
-            year: 'numeric', 
-            month: '2-digit', 
-            day: '2-digit' 
-        }).format(new Date());
+        const currentStatus = page.properties.Status?.status?.name === 'Completed';
 
         await notion.pages.update({
             page_id,
             properties: {
-                'Status': { status: { name: newStatus } },
-                'Completed Date': newStatus === 'Completed' ? { date: { start: today } } : { date: null } as any
+                Status: {
+                    status: {
+                        name: currentStatus ? 'In progress' : 'Completed'
+                    }
+                }
             }
         });
 
-        return Response.json({ success: true, newStatus }, { headers: corsHeaders });
+        return Response.json({ success: true, completed: !currentStatus }, { headers: corsHeaders });
     } catch (error: any) {
-        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+        console.error('Complete Task Error:', error);
+        return Response.json({ success: false, error: String(error) }, { status: 500, headers: corsHeaders });
     }
 }

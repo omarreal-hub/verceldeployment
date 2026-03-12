@@ -76,7 +76,6 @@ export default function App() {
 
         const rawTasks = data.tasks || [];
         const mappedProjects = (data.projects || []).map(p => {
-          // ... (mapping logic continues)
           const projectTasks = rawTasks.filter(t => {
             for (const key in t.raw) {
               if (t.raw[key]?.type === 'relation' && t.raw[key].relation.some(r => r.id === p.id)) return true;
@@ -266,10 +265,6 @@ export default function App() {
       ));
     };
 
-    // 2. Optimistic User Update (Toggling tasks gives a small amount of Aura if your system does that, or at least we can update points)
-    // Let's assume tasks give 5 Aura if completed (or check if project has aura shared)
-    // Actually, usually projects give the Aura on completion. Let's stick to project completion for level update.
-
     showSnackbar(isNowCompleted ? 'Task marked as completed' : 'Task unchecked', executionFn, rollbackFn);
   };
   const completeProject = (projectId) => {
@@ -296,7 +291,6 @@ export default function App() {
     };
 
     const rollbackFn = () => {
-      // Revert optimistic update (simply re-fetching is safest but let's toggle back local state for immediate feedback)
       setProjects(ps => ps.map(p =>
         p.id === projectId
           ? { ...p, status: 'In progress', completedDate: null, tasks: p.tasks.map(t => ({ ...t, completed: false })) }
@@ -358,7 +352,6 @@ export default function App() {
         body: JSON.stringify({ noteId })
       });
       if (!res.ok) throw new Error('API failed');
-      // Silently refresh for full sync later
       setTimeout(() => fetchData(), 500);
     } catch (e) {
       console.error('Failed to archive note', e);
@@ -404,7 +397,6 @@ export default function App() {
     };
 
     const rollbackFn = () => {
-      // Revert optimistic update
       setUser(u => {
         const revertAuraTotal = u.auraTotal + item.price;
         const revertLevel = Math.floor(revertAuraTotal / 100) + 1;
@@ -424,7 +416,6 @@ export default function App() {
     showSnackbar(`Purchased ${item.title}!`, executionFn, rollbackFn);
   };
 
-  // Initial load screens
   if (loading && !user.name) {
     return (
       <div style={{ height: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
@@ -447,7 +438,6 @@ export default function App() {
     );
   }
 
-  // Derived stats shared with Header & ProfileView
   const habitsDone = habits.filter(h => h.completed).length;
   const totalHabits = habits.length;
   const tasksDone = projects.reduce((a, p) => a + p.tasks.filter(t => t.completed).length, 0);
@@ -482,7 +472,6 @@ export default function App() {
   };
 
   return (
-    /* overflow-hidden on the root forces the flex child to own its scroll context */
     <div style={{
       display: 'flex', flexDirection: 'column',
       height: '100dvh',
@@ -491,11 +480,6 @@ export default function App() {
     }}>
       {showHeader && <Header {...stats} user={user} />}
 
-      {/*
-        flex-1 + minHeight:0 = required in flex context so this div can shrink.
-        overflowY:auto       = let THIS element scroll (not the page).
-        paddingBottom:128px  = clears the fixed bottom nav (pb-32).
-      */}
       <main style={{
         flex: 1,
         minHeight: 0,
@@ -538,7 +522,6 @@ export default function App() {
         }}
       />
 
-      {/* Notification Snackbar */}
       {snackbar.visible && (
         <div style={{
           position: 'fixed',

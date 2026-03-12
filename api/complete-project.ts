@@ -1,10 +1,15 @@
 import { notion } from './_lib/notion.js';
+import { z } from 'zod';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+const ProjectSchema = z.object({
+    projectId: z.string().min(1)
+});
 
 export async function OPTIONS() {
     return new Response(null, { headers: corsHeaders });
@@ -12,11 +17,10 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const { projectId } = await req.json();
+        const body = await req.json();
+        const { projectId } = ProjectSchema.parse(body);
 
-        if (!projectId) {
-            return Response.json({ error: 'Project ID is required' }, { status: 400, headers: corsHeaders });
-        }
+        console.log(`[API] Received request to complete project: ${projectId}`);
 
         const today = new Intl.DateTimeFormat('en-CA', { 
             timeZone: 'Africa/Cairo', 
@@ -42,6 +46,8 @@ export async function POST(req: Request) {
             }
         });
 
+        console.log(`[API] Marked project ${projectId} as Completed`);
+
         // 2. CASCADE: Mark all tasks linked to this project as Completed
         try {
             const taskDbId = '207f2317-55ae-8141-9dba-c847715bc9e1';
@@ -66,6 +72,7 @@ export async function POST(req: Request) {
             });
 
             if (relatedTasks.results.length > 0) {
+                console.log(`[API] Cascading completion to ${relatedTasks.results.length} tasks`);
                 await Promise.all(
                     relatedTasks.results.map((task: any) => 
                         notion.pages.update({
@@ -87,13 +94,21 @@ export async function POST(req: Request) {
                 );
             }
         } catch (cascadeError) {
-            console.error('Cascade Tasks Update Error (Non-Fatal):', cascadeError);
+            console.error('[API] Cascade Tasks Update Error (Non-Fatal):', cascadeError);
         }
 
         return Response.json({ success: true }, { headers: corsHeaders });
 
     } catch (error: any) {
-        console.error('Complete Project Error:', error);
-        return Response.json({ error: error.message }, { status: 500, headers: corsHeaders });
+        console.error('[API ERROR completing project]', error);
+        
+        if (error instanceof z.ZodError) {
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, { status: 400, headers: corsHeaders });
+        }
+
+        return Response.json({
+            success: false,
+            error: error.message || 'Internal Server Error'
+        }, { status: 500, headers: corsHeaders });
     }
 }

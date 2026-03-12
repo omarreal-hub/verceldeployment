@@ -1,10 +1,15 @@
 import { notion } from './_lib/notion.js';
+import { z } from 'zod';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
+
+const RequestSchema = z.object({
+    page_id: z.string().min(5, "A valid Notion page_id is required."),
+});
 
 export async function OPTIONS() {
     return new Response(null, { headers: corsHeaders });
@@ -12,14 +17,15 @@ export async function OPTIONS() {
 
 export async function POST(req: Request) {
     try {
-        const { page_id } = await req.json();
+        const body = await req.json();
+        const { page_id } = RequestSchema.parse(body);
 
-        if (!page_id) {
-            return Response.json({ success: false, error: 'Missing page_id' }, { status: 400, headers: corsHeaders });
-        }
+        console.log(`[API] Received request to complete task: ${page_id}`);
 
-        const page: any = await notion.pages.retrieve({ page_id });
-        const currentStatus = page.properties.Status?.status?.name === 'Completed';
+        // 1. Fetch current status to toggle
+        const page = await notion.pages.retrieve({ page_id: page_id }) as any;
+        const currentStatus = page.properties.Status?.status?.name;
+        const isCompleted = currentStatus === 'Completed';
 
         const today = new Intl.DateTimeFormat('en-CA', { 
             timeZone: 'Africa/Cairo', 
@@ -28,23 +34,35 @@ export async function POST(req: Request) {
             day: '2-digit' 
         }).format(new Date());
 
-        await notion.pages.update({
-            page_id,
+        // 2. Toggle status
+        const response = await notion.pages.update({
+            page_id: page_id,
             properties: {
-                Status: {
-                    status: {
-                        name: currentStatus ? 'In progress' : 'Completed'
-                    }
-                },
-                'Completed Date': currentStatus ? { date: null } : { 
+                'Status': { status: { name: isCompleted ? 'In progress' : 'Completed' } },
+                'Completed Date': isCompleted ? { date: null } : { 
                     date: { start: today } 
                 }
             }
         });
 
-        return Response.json({ success: true, completed: !currentStatus }, { headers: corsHeaders });
+        console.log(`[API] Successfully toggled task: ${response.id} to ${isCompleted ? 'In progress' : 'Completed'}`);
+
+        return Response.json({
+            success: true,
+            completed: !isCompleted,
+            newStatus: isCompleted ? 'In progress' : 'Completed'
+        }, { headers: corsHeaders });
+
     } catch (error: any) {
-        console.error('Complete Task Error:', error);
-        return Response.json({ success: false, error: String(error) }, { status: 500, headers: corsHeaders });
+        console.error('[API ERROR completing task]', error);
+        
+        if (error instanceof z.ZodError) {
+            return Response.json({ success: false, error: 'Invalid Payload', details: error.errors }, { status: 400, headers: corsHeaders });
+        }
+
+        return Response.json({
+            success: false,
+            error: error.message || 'Internal Server Error'
+        }, { status: 500, headers: corsHeaders });
     }
 }

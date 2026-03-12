@@ -41,10 +41,13 @@ export async function POST(req: Request) {
             return Response.json({ error: 'Not enough Aura' }, { status: 400, headers: corsHeaders });
         }
 
-        // 4. Mark as Claimed (No Date property as requested)
+        // 4. Mark as Claimed (Update both for compatibility)
         await notion.pages.update({
             page_id: itemId,
             properties: {
+                'Claimed': {
+                    checkbox: true
+                },
                 'Checkbox': {
                     checkbox: true
                 }

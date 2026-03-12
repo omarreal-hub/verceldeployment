@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     try {
         const body = await req.json();
         const text = body.text || body.message?.text;
-        const modelId = body.modelId || 'google:gemini-2.0-flash-exp';
+        const modelId = body.modelId || 'google:gemini-2.5-flash';
 
         if (!text) {
             return Response.json({ success: false, error: 'No text provided' }, { status: 400, headers: corsHeaders });

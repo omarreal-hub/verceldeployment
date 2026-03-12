@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, TrendingUp, ShoppingBag } from 'lucide-react';
+import { Sparkles, TrendingUp, ShoppingBag, LayoutGrid, AlertTriangle } from 'lucide-react';
 
 // Tiny inline stat chip (replaces the 2nd-row rings)
 function StatChip({ icon, done, total, color }) {
@@ -122,7 +122,7 @@ export default function Header({ habitsDone, totalHabits, tasksDone, totalTasks,
         </span>
       </div>
 
-      {/* Row 3: Aura Economy Stats */}
+      {/* Row 3: Aura Economy Stats (Premium Horizontal Strip) */}
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -132,6 +132,7 @@ export default function Header({ habitsDone, totalHabits, tasksDone, totalTasks,
         padding: '3px 12px',
         border: '1px solid rgba(255,255,255,0.03)'
       }}>
+        {/* Total Aura */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Sparkles size={10} style={{ color: 'var(--aura)', opacity: 0.8 }} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -142,6 +143,7 @@ export default function Header({ habitsDone, totalHabits, tasksDone, totalTasks,
 
         <div style={{ width: 1, height: 12, background: 'var(--border-subtle)', opacity: 0.3 }} />
 
+        {/* Earned Today */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <TrendingUp size={10} style={{ color: 'var(--green)', opacity: 0.8 }} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -152,6 +154,7 @@ export default function Header({ habitsDone, totalHabits, tasksDone, totalTasks,
 
         <div style={{ width: 1, height: 12, background: 'var(--border-subtle)', opacity: 0.3 }} />
 
+        {/* Spent Today */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <ShoppingBag size={10} style={{ color: 'var(--red)', opacity: 0.8 }} />
           <div style={{ display: 'flex', flexDirection: 'column' }}>

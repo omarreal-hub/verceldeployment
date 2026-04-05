@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Accordion from '../components/Accordion';
 import { FileText, X, Archive, Clock } from 'lucide-react';
 import * as Icons from 'lucide-react';
+import { getIconName } from '../utils/getIcon';
 
 // ─── Note Preview Modal Component ──────────────────────────
 function NoteModal({ noteId, onClose, onArchive }) {
@@ -307,7 +308,7 @@ function TimeCard({ label, pct, color }) {
 }
 
 // ─── Profile View ─────────────────────────────────────────────────
-export default function ProfileView({ habits, projects, stats, user, onArchiveNote }) {
+export default function ProfileView({ habits, projects, stats, user, onArchiveNote, onReviewNote, reviewedNotes }) {
   const profileStats = {
     aura: user.auraTotal || 0,
     overdue: projects.reduce((a, p) => a + p.tasks.filter(t => t.isOverdue && !t.completed).length, 0),
@@ -464,12 +465,62 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onArchiveNote(note.id);
+                    onReviewNote(note.id);
                   }}
                   style={{
                     padding: '7px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
                     background: 'var(--aura-dim)', color: 'var(--aura)',
                     border: '1px solid rgba(167,139,250,0.3)', cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Reviewed
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </Accordion>
+
+      {/* ── Reviewed Notes ───────────────────────────────── */}
+      <Accordion title="Reviewed Notes" icon="✅" badge={(reviewedNotes || []).length} defaultOpen={false}>
+        <div style={{ padding: '0px 0px 8px 0px', display: 'flex', flexDirection: 'column' }}>
+          {(!reviewedNotes || reviewedNotes.length === 0) ? (
+            <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+              No reviewed notes yet.
+            </div>
+          ) : (
+            reviewedNotes.map(note => (
+              <div key={note.id}
+                onClick={() => setSelectedNoteId(note.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', gap: 14,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {note.title}
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Clock size={10} style={{ opacity: 0.6 }} />
+                    {new Date(note.fullDate || note.created_time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onArchiveNote(note.id);
+                  }}
+                  style={{
+                    padding: '7px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                    background: 'rgba(239,68,68,0.1)', color: '#f87171',
+                    border: '1px solid rgba(239,68,68,0.2)', cursor: 'pointer',
                     transition: 'all 0.2s ease',
                     whiteSpace: 'nowrap'
                   }}
@@ -501,17 +552,7 @@ export default function ProfileView({ habits, projects, stats, user, onArchiveNo
             </div>
           ) : (
             user.recentPurchases.map(item => {
-              const titleLower = (item.title || '').toLowerCase();
-              let iconName = 'Package';
-              if (titleLower.includes('youtube') || titleLower.includes('netflix') || titleLower.includes('watch') || titleLower.includes('movie')) iconName = 'Tv';
-              else if (titleLower.includes('pizza') || titleLower.includes('food') || titleLower.includes('takeout') || titleLower.includes('order')) iconName = 'Pizza';
-              else if (titleLower.includes('coffee') || titleLower.includes('drink') || titleLower.includes('latte')) iconName = 'Coffee';
-              else if (titleLower.includes('game') || titleLower.includes('play')) iconName = 'Gamepad2';
-              else if (titleLower.includes('social') || titleLower.includes('scroll')) iconName = 'Smartphone';
-              else if (titleLower.includes('nap') || titleLower.includes('rest') || titleLower.includes('sleep')) iconName = 'Bed';
-              else if (titleLower.includes('dessert') || titleLower.includes('sugar') || titleLower.includes('cake')) iconName = 'IceCream';
-              else if (titleLower.includes('gym') || titleLower.includes('workout') || titleLower.includes('skip')) iconName = 'Dumbbell';
-
+              const iconName = getIconName(item.title);
               const IconComponent = Icons[iconName] || Icons.ShoppingCart;
 
               return (

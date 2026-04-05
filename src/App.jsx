@@ -27,6 +27,7 @@ export default function App() {
   const [habits, setHabits] = useState([]);
   const [projects, setProjects] = useState([]);
   const [shopItems, setShopItems] = useState([]); // NEW
+  const [reviewedNotes, setReviewedNotes] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -86,7 +87,8 @@ export default function App() {
             id: t.id,
             title: t.title,
             completed: t.raw.Status?.status?.name === 'Completed',
-            isOverdue: t.isOverdue // Mapping from backend processed flag
+            isOverdue: t.isOverdue,
+            dueDate: t.raw['Due Date']?.date?.start || null
           }));
 
           return {
@@ -108,6 +110,8 @@ export default function App() {
         
         // CRITICAL: Only update shop items if NOT currently purchasing to prevent flicker/revert
         setShopItems(data.shop || []);
+
+        setReviewedNotes(data.reviewedNotes || []);
       }
 
     } catch (err) {
@@ -367,6 +371,107 @@ export default function App() {
     }
   };
 
+  const handleReviewNote = (noteId) => {
+    const note = (user.notesToReviewItems || []).find(n => n.id === noteId);
+    
+    // Optimistic UI: remove from inbox
+    setUser(u => ({
+      ...u,
+      notesToReviewCount: Math.max(0, u.notesToReviewCount - 1),
+      notesToReviewItems: u.notesToReviewItems.filter(n => n.id !== noteId)
+    }));
+    // Optimistic UI: add to reviewed
+    if (note) {
+      setReviewedNotes(prev => [note, ...prev]);
+    }
+
+    const executionFn = async () => {
+      const res = await fetch('/api/review-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId })
+      });
+      if (!res.ok) throw new Error('API failed');
+      setTimeout(() => fetchData(), 5000);
+    };
+
+    const rollbackFn = () => {
+      if (note) {
+        setUser(u => ({
+          ...u,
+          notesToReviewCount: u.notesToReviewCount + 1,
+          notesToReviewItems: [note, ...u.notesToReviewItems]
+        }));
+        setReviewedNotes(prev => prev.filter(n => n.id !== noteId));
+      }
+    };
+
+    showSnackbar('Note marked as reviewed', executionFn, rollbackFn);
+  };
+
+  const handleArchiveReviewedNote = (noteId) => {
+    const note = reviewedNotes.find(n => n.id === noteId);
+    
+    // Optimistic UI: remove from reviewed
+    setReviewedNotes(prev => prev.filter(n => n.id !== noteId));
+
+    const executionFn = async () => {
+      const res = await fetch('/api/archive-note', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId })
+      });
+      if (!res.ok) throw new Error('API failed');
+      setTimeout(() => fetchData(), 5000);
+    };
+
+    const rollbackFn = () => {
+      if (note) {
+        setReviewedNotes(prev => [note, ...prev]);
+      }
+    };
+
+    showSnackbar('Note archived', executionFn, rollbackFn);
+  };
+
+  const handleAddTask = (projectId, taskName) => {
+    const tempId = 'temp-task-' + Date.now();
+    
+    // Optimistic UI: add temp task to project
+    setProjects(ps => ps.map(p =>
+      p.id === projectId
+        ? { ...p, tasks: [...p.tasks, { id: tempId, title: taskName, completed: false, dueDate: new Date().toISOString().split('T')[0] }] }
+        : p
+    ));
+
+    const executionFn = async () => {
+      const res = await fetch('/api/add-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, taskName })
+      });
+      if (!res.ok) throw new Error('Failed to add task');
+      const data = await res.json();
+      // Replace temp ID with real ID
+      setProjects(ps => ps.map(p =>
+        p.id === projectId
+          ? { ...p, tasks: p.tasks.map(t => t.id === tempId ? { ...t, id: data.taskId } : t) }
+          : p
+      ));
+      setTimeout(() => fetchData(), 8000);
+    };
+
+    const rollbackFn = () => {
+      setProjects(ps => ps.map(p =>
+        p.id === projectId
+          ? { ...p, tasks: p.tasks.filter(t => t.id !== tempId) }
+          : p
+      ));
+    };
+
+    showSnackbar('Task added', executionFn, rollbackFn);
+  };
+
   const handleBuyItem = (item) => {
     lastActionTime.current = Date.now();
     // 1. Optimistic UI update
@@ -473,12 +578,13 @@ export default function App() {
           pinnedProjectIds={pinnedProjectIds}
           onTogglePin={togglePin}
           onMovePin={movePinnedProject}
+          onAddTask={handleAddTask}
         />
       );
     if (activeTab === 'shop')
       return <ShopView user={user} shopItems={shopItems} onBuyItem={handleBuyItem} />;
     if (activeTab === 'profile')
-      return <ProfileView habits={habits} projects={projects} stats={stats} user={user} onArchiveNote={handleArchiveNote} />;
+      return <ProfileView habits={habits} projects={projects} stats={stats} user={user} onArchiveNote={handleArchiveReviewedNote} onReviewNote={handleReviewNote} reviewedNotes={reviewedNotes} />;
     return null;
   };
 

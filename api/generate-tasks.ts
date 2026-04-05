@@ -92,6 +92,7 @@ export async function POST(req: Request) {
                         'Status': { status: { name: (task.status as any) === 'Done' ? 'Completed' : task.status } },
                         'Due Date': { date: { start: validateOrProvideDefaultDate(task.do_date) } },
                         'Project': { relation: [{ id: projectId }] },
+                        'Zone': { relation: [{ id: matchedZoneId }] },
                         'Profile': { relation: [{ id: PROFILE_ID }] }
                     }
                 });

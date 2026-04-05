@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Accordion from '../components/Accordion';
 import * as Icons from 'lucide-react';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { getIconName } from '../utils/getIcon';
 
 // ─── Type badge colour map ─────────────────────────────────────────
 const TYPE_COLORS = {
@@ -14,17 +15,7 @@ const TYPE_COLORS = {
 function HabitCard({ habit, onToggle }) {
   const isDone = habit.completed;
 
-  // Try to find an icon based on words in the title, default to Circle
-  const titleLower = (habit.title || '').toLowerCase();
-  let iconName = 'Circle';
-  if (titleLower.includes('meditate') || titleLower.includes('yoga') || titleLower.includes('breathe')) iconName = 'Wind';
-  else if (titleLower.includes('workout') || titleLower.includes('gym') || titleLower.includes('exercise')) iconName = 'Dumbbell';
-  else if (titleLower.includes('read') || titleLower.includes('book')) iconName = 'BookOpen';
-  else if (titleLower.includes('water') || titleLower.includes('drink')) iconName = 'Droplet';
-  else if (titleLower.includes('code') || titleLower.includes('program')) iconName = 'Code2';
-  else if (titleLower.includes('walk') || titleLower.includes('run')) iconName = 'Footprints';
-  else if (titleLower.includes('sleep') || titleLower.includes('bed')) iconName = 'Moon';
-
+  const iconName = getIconName(habit.title);
   const IconComponent = Icons[habit.icon] || Icons[iconName] || Icons.Circle;
 
   return (
@@ -97,8 +88,18 @@ function CheckItem({ label, checked, onToggle }) {
 }
 
 // ─── Project Card ─────────────────────────────────────────────────
-function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTogglePin, onMovePin }) {
+function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTogglePin, onMovePin, onAddTask }) {
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [addingTask, setAddingTask] = useState(false);
+  const [newTaskName, setNewTaskName] = useState('');
+  const [sortMode, setSortMode] = useState(() => localStorage.getItem(`task_sort_${project.id}`) || 'date');
+  const [manualOrder, setManualOrder] = useState(() => {
+    const saved = localStorage.getItem(`task_order_${project.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [dragOverId, setDragOverId] = useState(null);
+  const dragItemRef = useState(null);
+
   const isPinned = pinnedProjectIds.includes(project.id);
   const orderIndex = pinnedProjectIds.indexOf(project.id);
   const isFirst = orderIndex === 0;
@@ -109,6 +110,76 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
   const total = project.tasks.length;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const isCompleted = project.status === 'Completed';
+
+  const toggleSort = () => {
+    const next = sortMode === 'date' ? 'manual' : 'date';
+    setSortMode(next);
+    localStorage.setItem(`task_sort_${project.id}`, next);
+  };
+
+  const getSortedTasks = () => {
+    const tasks = [...project.tasks];
+    if (sortMode === 'date') {
+      return tasks.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        const da = a.dueDate || '';
+        const db = b.dueDate || '';
+        return da.localeCompare(db);
+      });
+    }
+    // Manual sort
+    if (manualOrder.length > 0) {
+      const orderMap = {};
+      manualOrder.forEach((id, i) => { orderMap[id] = i; });
+      return tasks.sort((a, b) => {
+        const oa = orderMap[a.id] !== undefined ? orderMap[a.id] : 9999;
+        const ob = orderMap[b.id] !== undefined ? orderMap[b.id] : 9999;
+        return oa - ob;
+      });
+    }
+    return tasks;
+  };
+
+  const handleDragStart = (e, taskId) => {
+    dragItemRef[1](taskId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, taskId) => {
+    e.preventDefault();
+    setDragOverId(taskId);
+  };
+
+  const handleDrop = (e, targetId) => {
+    e.preventDefault();
+    setDragOverId(null);
+    const dragId = dragItemRef[0];
+    if (!dragId || dragId === targetId) return;
+    const ids = getSortedTasks().map(t => t.id);
+    const fromIdx = ids.indexOf(dragId);
+    const toIdx = ids.indexOf(targetId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    ids.splice(fromIdx, 1);
+    ids.splice(toIdx, 0, dragId);
+    setManualOrder(ids);
+    localStorage.setItem(`task_order_${project.id}`, JSON.stringify(ids));
+    dragItemRef[1](null);
+  };
+
+  const handleDragEnd = () => {
+    setDragOverId(null);
+    dragItemRef[1](null);
+  };
+
+  const handleAddConfirm = () => {
+    const name = newTaskName.trim();
+    if (!name || !onAddTask) return;
+    onAddTask(project.id, name);
+    setNewTaskName('');
+    setAddingTask(false);
+  };
+
+  const sortedTasks = getSortedTasks();
 
   return (
     <div style={{
@@ -243,6 +314,21 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
               </button>
             )}
 
+            {/* Sort toggle */}
+            <button
+              onClick={toggleSort}
+              title={sortMode === 'date' ? 'Sort: Date' : 'Sort: Manual'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                fontSize: 10, fontWeight: 600, padding: '4px 8px', borderRadius: 8,
+                background: 'var(--bg-card)', color: 'var(--text-muted)',
+                border: '1px solid var(--border)', cursor: 'pointer', outline: 'none',
+                transition: 'all 0.2s'
+              }}
+            >
+              {sortMode === 'date' ? <Icons.CalendarDays size={11} /> : <Icons.GripVertical size={11} />}
+            </button>
+
             <button
               onClick={() => setTasksOpen(o => !o)}
               style={{
@@ -281,10 +367,84 @@ function ProjectCard({ project, onToggleTask, onComplete, pinnedProjectIds, onTo
       >
         <div style={{ overflow: 'hidden' }}>
           <div style={{ borderTop: '1px solid var(--border-subtle)' }}>
-            {project.tasks.map(task => (
-              <CheckItem key={task.id} label={task.title}
-                checked={task.completed} onToggle={() => onToggleTask(project.id, task.id)} />
+            {sortedTasks.map(task => (
+              <div
+                key={task.id}
+                draggable={sortMode === 'manual'}
+                onDragStart={(e) => handleDragStart(e, task.id)}
+                onDragOver={(e) => handleDragOver(e, task.id)}
+                onDrop={(e) => handleDrop(e, task.id)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  background: dragOverId === task.id ? 'rgba(167,139,250,0.08)' : 'transparent',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  {sortMode === 'manual' && (
+                    <div style={{ padding: '0 4px 0 10px', cursor: 'grab', color: 'var(--text-muted)', opacity: 0.4 }}>
+                      <Icons.GripVertical size={14} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <CheckItem label={task.title}
+                      checked={task.completed} onToggle={() => onToggleTask(project.id, task.id)} />
+                  </div>
+                </div>
+              </div>
             ))}
+
+            {/* Add Task inline */}
+            {!isCompleted && (
+              addingTask ? (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 14px', borderTop: '1px solid var(--border-subtle)',
+                }}>
+                  <input
+                    autoFocus
+                    value={newTaskName}
+                    onChange={e => setNewTaskName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddConfirm(); if (e.key === 'Escape') { setAddingTask(false); setNewTaskName(''); } }}
+                    placeholder="Task name..."
+                    style={{
+                      flex: 1, background: 'var(--bg-card)', border: '1px solid var(--border)',
+                      borderRadius: 8, padding: '7px 12px', fontSize: 13, color: 'var(--text-primary)',
+                      outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                  <button
+                    onClick={handleAddConfirm}
+                    disabled={!newTaskName.trim()}
+                    style={{
+                      padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                      background: newTaskName.trim() ? 'var(--aura-dim)' : 'var(--bg-card)',
+                      color: newTaskName.trim() ? 'var(--aura)' : 'var(--text-muted)',
+                      border: `1px solid ${newTaskName.trim() ? 'rgba(167,139,250,0.3)' : 'var(--border)'}`,
+                      cursor: newTaskName.trim() ? 'pointer' : 'default', outline: 'none',
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setAddingTask(true); setTasksOpen(true); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                    padding: '10px 14px', fontSize: 12, fontWeight: 600,
+                    color: 'var(--text-muted)', background: 'transparent',
+                    border: 'none', borderTop: '1px solid var(--border-subtle)',
+                    cursor: 'pointer', transition: 'color 0.2s ease',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'var(--aura)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+                >
+                  <Icons.Plus size={14} />
+                  Add Task
+                </button>
+              )
+            )}
           </div>
         </div>
       </div>
@@ -369,7 +529,7 @@ function HighlightCard({ habits, onToggleHabit, user }) {
 }
 
 // ─── Home View ────────────────────────────────────────────────────
-export default function HomeView({ habits, projects, user, onToggleHabit, onToggleTask, onCompleteProject, pinnedProjectIds, onTogglePin, onMovePin }) {
+export default function HomeView({ habits, projects, user, onToggleHabit, onToggleTask, onCompleteProject, pinnedProjectIds, onTogglePin, onMovePin, onAddTask }) {
   const activeProjects = projects.filter(p => {
     return p.status !== 'Completed';
   });
@@ -409,6 +569,7 @@ export default function HomeView({ habits, projects, user, onToggleHabit, onTogg
               pinnedProjectIds={pinnedProjectIds}
               onTogglePin={onTogglePin}
               onMovePin={onMovePin}
+              onAddTask={onAddTask}
             />
           ))}
           {activeProjects.length === 0 && (
@@ -432,6 +593,7 @@ export default function HomeView({ habits, projects, user, onToggleHabit, onTogg
                 pinnedProjectIds={pinnedProjectIds}
                 onTogglePin={onTogglePin}
                 onMovePin={onMovePin}
+                onAddTask={onAddTask}
               />
             ))}
           </div>

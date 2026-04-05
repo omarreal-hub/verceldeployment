@@ -27,7 +27,8 @@ export async function POST(req: Request) {
             tasksRes,
             shopRes,
             notesRes,
-            zonesRes
+            zonesRes,
+            reviewedNotesRes
         ] = await Promise.allSettled([
             // 1. Profile Data
             notion.pages.retrieve({ page_id: '207f2317-55ae-8153-9da3-ce5cfe4dd0c8' }),
@@ -96,6 +97,16 @@ export async function POST(req: Request) {
             // 7. Zones (For relation Name mapping)
             notion.databases.query({
                 database_id: '207f2317-55ae-8137-a815-d5e30b51abf8'
+            }),
+            // 8. Reviewed Notes (Status = Permanent, not archived)
+            notion.databases.query({
+                database_id: '207f2317-55ae-8169-b1ba-fbdce796789a',
+                filter: {
+                    and: [
+                        { property: 'Status', status: { equals: 'Permanent' } },
+                        { property: 'Archive', checkbox: { equals: false } }
+                    ]
+                }
             })
         ]);
 
@@ -260,6 +271,18 @@ export async function POST(req: Request) {
 
         const auraEarnedToday = Math.max(0, profileData.points.today + auraSpentToday);
 
+        // Process Reviewed Notes
+        let reviewedNotes: any[] = [];
+        if (reviewedNotesRes.status === 'fulfilled') {
+            reviewedNotes = reviewedNotesRes.value.results.map((note: any) => ({
+                id: note.id,
+                title: note.properties.Name?.title?.[0]?.plain_text ||
+                    note.properties.title?.title?.[0]?.plain_text || 'Untitled Note',
+                created_time: note.created_time,
+                fullDate: note.last_edited_time
+            })).sort((a: any, b: any) => new Date(b.fullDate).getTime() - new Date(a.fullDate).getTime());
+        }
+
         return Response.json({
             profile: {
                 ...profileData,
@@ -273,7 +296,8 @@ export async function POST(req: Request) {
             habits,
             projects,
             tasks,
-            shop
+            shop,
+            reviewedNotes
         }, { headers: corsHeaders });
 
     } catch (error: any) {

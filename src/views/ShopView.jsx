@@ -1,22 +1,12 @@
 import * as Icons from 'lucide-react';
 import { Sparkles } from 'lucide-react';
+import { getIconName } from '../utils/getIcon';
 
 // ─── Shop Item Card (Inspired by HabitCard) ──────────────────────────
 function ShopItemCard({ item, balance, onBuy }) {
   const isAffordable = balance >= item.price;
 
-  // Dynamic icon mapping based on item title
-  const titleLower = (item.name || '').toLowerCase();
-  let iconName = 'Package';
-  if (titleLower.includes('youtube') || titleLower.includes('netflix') || titleLower.includes('watch') || titleLower.includes('movie')) iconName = 'Tv';
-  else if (titleLower.includes('pizza') || titleLower.includes('food') || titleLower.includes('takeout') || titleLower.includes('order')) iconName = 'Pizza';
-  else if (titleLower.includes('coffee') || titleLower.includes('drink') || titleLower.includes('latte')) iconName = 'Coffee';
-  else if (titleLower.includes('game') || titleLower.includes('play')) iconName = 'Gamepad2';
-  else if (titleLower.includes('social') || titleLower.includes('scroll')) iconName = 'Smartphone';
-  else if (titleLower.includes('nap') || titleLower.includes('rest') || titleLower.includes('sleep')) iconName = 'Bed';
-  else if (titleLower.includes('dessert') || titleLower.includes('sugar') || titleLower.includes('cake')) iconName = 'IceCream';
-  else if (titleLower.includes('gym') || titleLower.includes('workout') || titleLower.includes('skip')) iconName = 'Dumbbell';
-
+  const iconName = getIconName(item.name);
   const IconComponent = Icons[iconName] || Icons.ShoppingCart;
 
   return (
